@@ -1,6 +1,9 @@
 """Leitura e escrita atômica de execuções e tickets."""
 
 import json
+import os
+import tempfile
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -21,6 +24,29 @@ M = TypeVar("M", bound=BaseModel)
 
 class DataError(Exception):
     """Dados ausentes ou inválidos; a mensagem é legível para o usuário."""
+
+
+def write_json_atomic(path: Path, data: Any) -> None:
+    """Grava JSON de forma atômica: escreve num temporário na mesma pasta e renomeia.
+
+    Se algo falhar no meio, o arquivo de destino continua como estava e o
+    temporário é apagado. Cria as pastas que faltarem.
+    """
+    path = Path(path)
+    # Serializa antes de abrir qualquer arquivo: dado inválido falha sem tocar no disco.
+    content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as tmp_file:
+            tmp_file.write(content)
+            tmp_file.flush()
+            os.fsync(tmp_file.fileno())
+        os.replace(tmp_name, path)
+    except BaseException:
+        with suppress(FileNotFoundError):
+            os.unlink(tmp_name)
+        raise
 
 
 def _read_json_list(path: Path) -> list[Any]:
