@@ -20,7 +20,7 @@ Requisitos: **Python 3.11+** e uma chave da API do Gemini (gratuita em [Google A
 Windows (PowerShell):
 
 ```powershell
-git clone <url-do-repositorio>
+git clone https://github.com/juniorcruz7/ai-bank-support.git
 cd ai-bank-support
 python -m venv .venv
 .venv\Scripts\Activate.ps1
@@ -31,7 +31,7 @@ python -m venv .venv
 Linux / macOS:
 
 ```bash
-git clone <url-do-repositorio>
+git clone https://github.com/juniorcruz7/ai-bank-support.git
 cd ai-bank-support
 python3 -m venv .venv
 source .venv/bin/activate
