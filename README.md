@@ -169,6 +169,13 @@ python -m pytest
 
 Os testes não precisam de chave nem de rede: o Gemini é substituído por um cliente falso que implementa a mesma interface.
 
+Lint e formatação com [ruff](https://docs.astral.sh/ruff/) (configuração em `pyproject.toml`):
+
+```bash
+ruff check .
+ruff format --check .
+```
+
 ## Limitações
 
 - O login de produção está fora do escopo: a CLI é a ferramenta do atendente, que escolhe o cliente.

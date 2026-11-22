@@ -1,0 +1,12 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+extend-exclude = [".venv", "runs", "logs"]
+
+[tool.ruff.lint]
+# E/W: estilo (pycodestyle), F: erros (pyflakes), I: ordem dos imports,
+# B: armadilhas comuns (bugbear), UP: sintaxe moderna compatível com 3.11
+select = ["E", "W", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
