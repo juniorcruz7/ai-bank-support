@@ -286,11 +286,11 @@ Estes padrões fecham decisões de implementação que ficariam em aberto; cada 
 | Tema | Padrão |
 | --- | --- |
 | Idioma | Saídas do modelo e mensagens da CLI em pt-BR; código, variáveis e chaves JSON em inglês |
-| Modelo | Nome do modelo só em `GEMINI_MODEL` no `.env`, nunca no código; o README diz qual foi usado nos samples |
+| Modelo | `GEMINI_MODEL` no `.env`; se vazio, usa o padrão `gemini-2.5-flash`, definido só em `app/config.py`; o README diz qual foi usado nos samples |
 | Templates | Arquivos `.md` em `prompts/<versao>/` com placeholders de `string.Template` (`$customer_name`), sem Jinja |
 | CLI | `argparse` com subcomandos: `generate --customer --ticket --type {diagnosis,resolution_steps,clarifying_questions,flow_summary,all} --version v1`; `compare --customer --ticket --type --versions v1 v2`; `ticket add --customer --title --description`; `ticket close T001 --resolution "..."`; `history --customer C001` |
 | Rubrica | Notas digitadas pelo candidato no fim do `compare` (inteiro de 1 a 5 + justificativa não vazia). LLM-as-judge só como extra, em campo separado `auto_evaluation` |
-| Datas | ISO 8601 com fuso America/Recife |
+| Datas | ISO 8601 com fuso America/Recife (`zoneinfo` + pacote `tzdata`, necessário no Windows) |
 | Limites de entrada | Ticket entre 10 e 2.000 caracteres; até 3 tickets de histórico no prompt |
 | Retentativas | Backoff exponencial, no máximo 3 tentativas por chamada; `--type all` = 4 chamadas |
 | Logs | Módulo `logging`, INFO no terminal e em `logs/app.log` (fora do git) |
