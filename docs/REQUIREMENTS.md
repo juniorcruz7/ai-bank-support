@@ -166,7 +166,7 @@ Camadas do prompt (cobrem os 5 elementos exigidos em 4.2):
 | Diagnóstico | "Analise o problema" | Separar o que o ticket diz (evidência) do que é suposição; probabilidade por hipótese |
 | Perguntas | "Faça perguntas" | No máximo 3, cada uma ligada a uma hipótese que ela confirma ou descarta |
 | Histórico | Bloco colado sem instrução | Evidência fraca: citar quando sustentar hipótese, nunca assumir que é o mesmo problema sem confirmar |
-| Saída | Texto livre com tópicos | JSON schema validado |
+| Saída | Mesmo JSON schema (imposto pelo Gemini e validado com Pydantic), sem restrições no prompt | Mesmo schema + restrições de quantidade, tamanho e vocabulário no prompt |
 | Exemplos | Nenhum | 1 exemplo curto (few-shot) só onde o formato é difícil (fluxograma) |
 
 Para a comparação ser justa: mesmo perfil, ticket, histórico, provedor, modelo, temperatura e max_tokens; muda só o template.

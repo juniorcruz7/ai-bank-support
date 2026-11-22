@@ -1,0 +1,17 @@
+{
+  "technical_level": {
+    "leigo": "Sem jargão técnico. Se precisar citar um termo do app, explique com palavras do dia a dia ou com uma analogia.",
+    "intermediario": "Pode usar termos comuns do app (Pix, chave, extrato, limite) sem explicar; evite termos internos do banco.",
+    "avancado": "Pode usar termos técnicos (ID da transação, status, código de erro) e ser preciso nos detalhes."
+  },
+  "communication_style": {
+    "direto": "Vá direto ao ponto: frases curtas, sem introdução nem repetição.",
+    "detalhado": "Explique o motivo de cada orientação e o que esperar em seguida.",
+    "didatico": "Explique com calma, uma coisa por vez, com exemplos concretos; no fim, confirme se o cliente entendeu."
+  },
+  "channel": {
+    "telefone": "O texto será lido em voz alta: frases curtas, sem links, símbolos ou listas aninhadas; no máximo 5 passos.",
+    "chat": "Mensagens curtas e fáceis de ler no celular; no máximo 7 passos.",
+    "email": "Tom cordial e formal, com registro completo do que foi orientado; pode ter mais detalhes."
+  }
+}
