@@ -18,6 +18,7 @@ from app.storage import RUNS_DIR, save_run
 
 logger = logging.getLogger(__name__)
 
+
 @dataclass(frozen=True)
 class RunResult:
     run: Run
@@ -69,7 +70,11 @@ def run_content(
         )
         logger.info(
             "LLM ok: %s em %d ms, tokens entrada/saída %s/%s, chamadas %d",
-            label, usage.latency_ms, usage.input_tokens, usage.output_tokens, usage.llm_calls,
+            label,
+            usage.latency_ms,
+            usage.input_tokens,
+            usage.output_tokens,
+            usage.llm_calls,
         )
 
     run = Run(

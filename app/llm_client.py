@@ -1,10 +1,10 @@
 """Interface única de LLM e implementação Gemini."""
 
-import time
-from dataclasses import dataclass
-from typing import Any, Callable, Protocol
-
 import importlib
+import time
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Protocol
 
 from google import genai
 from google.genai import errors, types
@@ -159,9 +159,7 @@ class GeminiClient:
             if exc.code == 429:
                 raise _Retryable(LLMRateLimitError("Limite de requisições do Gemini atingido (429).")) from None
             if exc.code in (401, 403) or "API key" in message:
-                raise LLMAuthError(
-                    "GEMINI_API_KEY inválida ou sem permissão. Confira a chave no .env."
-                ) from None
+                raise LLMAuthError("GEMINI_API_KEY inválida ou sem permissão. Confira a chave no .env.") from None
             if exc.code == 404:
                 raise LLMError(f"Modelo {self.model!r} não encontrado. Confira GEMINI_MODEL no .env.") from None
             raise LLMError(f"O Gemini recusou a requisição ({exc.code}): {message}") from None

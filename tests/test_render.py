@@ -1,7 +1,7 @@
 """Testes da formatação no terminal e do fluxograma ASCII (RF07, RF13)."""
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.models import ClarifyingQuestions, Diagnosis, Evaluation, FlowSummary, ResolutionSteps, Score
 from app.render import render_decision_tree, render_output, render_scores_table, render_side_by_side
@@ -105,8 +105,8 @@ def test_narrow_terminal_stacks_outputs():
 
 def _evaluation(*values):
     keys = ("clarity", "customer_fit", "actionability")
-    scores = {k: Score(score=v, justification="ok") for k, v in zip(keys, values)}
-    return Evaluation(comparison_id="c", evaluated_at=datetime.now(timezone.utc), **scores)
+    scores = {k: Score(score=v, justification="ok") for k, v in zip(keys, values, strict=True)}
+    return Evaluation(comparison_id="c", evaluated_at=datetime.now(UTC), **scores)
 
 
 def test_scores_table():

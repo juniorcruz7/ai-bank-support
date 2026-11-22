@@ -24,7 +24,16 @@ from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket
 from app.prompt_builder import CONTENT_TYPES, PROMPTS_DIR, PromptError, list_versions
 from app.render import CONTENT_LABELS, render_output, render_scores_table, render_side_by_side
 from app.service import RunResult, run_content
-from app.storage import PROFILES_PATH, RUNS_DIR, TICKETS_PATH, DataError, add_ticket, get_profile, load_profiles, load_tickets
+from app.storage import (
+    PROFILES_PATH,
+    RUNS_DIR,
+    TICKETS_PATH,
+    DataError,
+    add_ticket,
+    get_profile,
+    load_profiles,
+    load_tickets,
+)
 
 ROOT_DIR = Path(__file__).resolve().parent
 LOG_DIR = ROOT_DIR / "logs"
@@ -49,9 +58,7 @@ def make_client(temperature: float | None = None) -> LLMClient:
     """Cria o cliente Gemini; `temperature` sobrescreve o .env (usado na comparação)."""
     settings = load_settings()
     if temperature is not None and temperature != settings.temperature:
-        logger.warning(
-            "Comparação usa temperatura fixa %s (o .env pede %s).", temperature, settings.temperature
-        )
+        logger.warning("Comparação usa temperatura fixa %s (o .env pede %s).", temperature, settings.temperature)
         settings = dataclasses.replace(settings, temperature=temperature)
     return GeminiClient.from_settings(settings)
 
@@ -136,7 +143,9 @@ def _pick_customer(profiles: dict[str, Profile], customer_id: str | None) -> Pro
     return get_profile(profiles, customer_id)
 
 
-def _ask_new_ticket(profiles: dict[str, Profile], profile: Profile, title: str | None, description: str | None) -> Ticket:
+def _ask_new_ticket(
+    profiles: dict[str, Profile], profile: Profile, title: str | None, description: str | None
+) -> Ticket:
     _require(title, "--title")
     _require(description, "--description")
     title = title or _ask("Título do ticket: ")
@@ -201,7 +210,9 @@ def cmd_generate(args: argparse.Namespace) -> int:
     failures: list[str] = []
     for current in types:
         try:
-            result = run_content(profile, ticket, tickets, current, version, client, runs_dir=RUNS_DIR, prompts_dir=PROMPTS_DIR)
+            result = run_content(
+                profile, ticket, tickets, current, version, client, runs_dir=RUNS_DIR, prompts_dir=PROMPTS_DIR
+            )
         except LLMAuthError:
             raise
         except (LLMError, OutputValidationError) as exc:
@@ -260,7 +271,9 @@ def cmd_compare(args: argparse.Namespace) -> int:
     content_type = args.type
     _require(content_type, "--type")
     if not content_type:
-        content_type = _choose("Escolha o tipo de conteúdo a comparar:", [(t, CONTENT_LABELS[t]) for t in CONTENT_TYPES])
+        content_type = _choose(
+            "Escolha o tipo de conteúdo a comparar:", [(t, CONTENT_LABELS[t]) for t in CONTENT_TYPES]
+        )
 
     client = make_client(temperature=COMPARISON_TEMPERATURE)
     comparison = run_comparison(

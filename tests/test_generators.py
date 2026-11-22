@@ -53,10 +53,14 @@ def test_invalid_twice_raises_clear_error():
 
 def test_semantic_error_goes_to_retry_note():
     cyclic = json.dumps(
-        {"decision_tree": {"nodes": [
-            {"id": "n1", "type": "decision", "text": "A?", "yes": "n2", "no": "n2"},
-            {"id": "n2", "type": "decision", "text": "B?", "yes": "n1", "no": "n1"},
-        ]}}
+        {
+            "decision_tree": {
+                "nodes": [
+                    {"id": "n1", "type": "decision", "text": "A?", "yes": "n2", "no": "n2"},
+                    {"id": "n2", "type": "decision", "text": "B?", "yes": "n1", "no": "n1"},
+                ]
+            }
+        }
     )
     valid = json.dumps({"decision_tree": {"nodes": [{"id": "n1", "type": "action", "text": "Fazer X"}]}})
     client = FakeClient(cyclic, valid)

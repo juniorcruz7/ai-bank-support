@@ -31,6 +31,7 @@ class FakeClient:
             raise AssertionError("FakeClient chamado mais vezes do que o esperado")
         return LLMResponse(text=self._texts.pop(0), input_tokens=100, output_tokens=50, latency_ms=7, attempts=1)
 
+
 VALID_STEPS = json.dumps(
     {
         "steps": [
@@ -43,7 +44,11 @@ VALID_STEPS = json.dumps(
 VALID_QUESTIONS = json.dumps(
     {
         "questions": [
-            {"question": "O seu filho olhou o extrato?", "why_it_matters": "Descarta atraso de notificação", "priority": 2},
+            {
+                "question": "O seu filho olhou o extrato?",
+                "why_it_matters": "Descarta atraso de notificação",
+                "priority": 2,
+            },
             {"question": "Qual chave Pix você usou?", "why_it_matters": "Confirma o destinatário", "priority": 1},
         ]
     }

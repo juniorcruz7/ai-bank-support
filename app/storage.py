@@ -111,9 +111,7 @@ def load_profiles(path: Path = PROFILES_PATH) -> dict[str, Profile]:
     """Carrega e valida os perfis; retorna um dicionário id -> Profile."""
     profiles = _validate_items(_read_json_list(path), Profile, "Perfil", path.name)
     if not MIN_PROFILES <= len(profiles) <= MAX_PROFILES:
-        raise DataError(
-            f"{path.name} deve ter de {MIN_PROFILES} a {MAX_PROFILES} perfis; encontrados {len(profiles)}."
-        )
+        raise DataError(f"{path.name} deve ter de {MIN_PROFILES} a {MAX_PROFILES} perfis; encontrados {len(profiles)}.")
     _ensure_unique_ids(profiles, path.name)
     return {profile.id: profile for profile in profiles}
 
@@ -124,9 +122,7 @@ def load_tickets(profiles: dict[str, Profile], path: Path = TICKETS_PATH) -> lis
     _ensure_unique_ids(tickets, path.name)
     for ticket in tickets:
         if ticket.customer_id not in profiles:
-            raise DataError(
-                f"Ticket {ticket.id!r} aponta para cliente inexistente: {ticket.customer_id!r}."
-            )
+            raise DataError(f"Ticket {ticket.id!r} aponta para cliente inexistente: {ticket.customer_id!r}.")
     return tickets
 
 

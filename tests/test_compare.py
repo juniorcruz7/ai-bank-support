@@ -17,7 +17,7 @@ CRITERIA = ("clarity", "customer_fit", "actionability")
 
 
 def _scores(*values):
-    return {key: Score(score=v, justification=f"motivo {key}") for key, v in zip(CRITERIA, values)}
+    return {key: Score(score=v, justification=f"motivo {key}") for key, v in zip(CRITERIA, values, strict=True)}
 
 
 def _compare(tmp_path, versions=("v1", "v2")):
@@ -76,7 +76,7 @@ def _write_rubric(tmp_path, data):
 
 def _full(version_values):
     return {
-        version: {key: {"score": v, "justification": "ok"} for key, v in zip(CRITERIA, values)}
+        version: {key: {"score": v, "justification": "ok"} for key, v in zip(CRITERIA, values, strict=True)}
         for version, values in version_values.items()
     }
 

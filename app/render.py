@@ -5,7 +5,17 @@ from itertools import zip_longest
 
 from pydantic import BaseModel
 
-from app.models import RUBRIC_CRITERIA, ROOT_NODE_ID, ClarifyingQuestions, DecisionTree, Diagnosis, Evaluation, FlowNode, FlowSummary, ResolutionSteps
+from app.models import (
+    ROOT_NODE_ID,
+    RUBRIC_CRITERIA,
+    ClarifyingQuestions,
+    DecisionTree,
+    Diagnosis,
+    Evaluation,
+    FlowNode,
+    FlowSummary,
+    ResolutionSteps,
+)
 
 CONTENT_LABELS = {
     "diagnosis": "Diagnóstico",

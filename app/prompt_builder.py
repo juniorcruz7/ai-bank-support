@@ -165,7 +165,6 @@ def _hash_templates(version_dir: Path, content_type: str) -> str:
     return digest.hexdigest()
 
 
-
 def build_retry_note(version: str, validation_error: str, prompts_dir: Path = PROMPTS_DIR) -> str | None:
     """Texto anexado ao prompt no retry após saída inválida (None se a versão não tiver retry.md)."""
     path = prompts_dir / version / RETRY_TEMPLATE

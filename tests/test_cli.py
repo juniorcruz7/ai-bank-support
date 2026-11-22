@@ -96,7 +96,8 @@ def test_ticket_alone_infers_customer(env, capsys):
 def test_type_all_continues_after_failure(env, capsys):
     env.responses(
         VALID_BY_TYPE["diagnosis"],
-        "{}", "{}",  # passo a passo inválido duas vezes
+        "{}",
+        "{}",  # passo a passo inválido duas vezes
         VALID_BY_TYPE["clarifying_questions"],
         VALID_BY_TYPE["flow_summary"],
     )
@@ -113,7 +114,10 @@ def test_type_all_continues_after_failure(env, capsys):
         (["generate", "--customer", "C999", "--ticket", "T001", "--type", "diagnosis"], "Perfil 'C999' não existe"),
         (["generate", "--customer", "C001", "--ticket", "T999", "--type", "diagnosis"], "Ticket 'T999' não existe"),
         (["generate", "--customer", "C002", "--ticket", "T001", "--type", "diagnosis"], "pertence a C001"),
-        (["generate", "--customer", "C001", "--ticket", "T001", "--type", "diagnosis", "--version", "v9"], "Versão 'v9'"),
+        (
+            ["generate", "--customer", "C001", "--ticket", "T001", "--type", "diagnosis", "--version", "v9"],
+            "Versão 'v9'",
+        ),
         (["generate", "--customer", "C001", "--ticket", "T001"], "Informe --type"),
     ],
 )
@@ -121,7 +125,7 @@ def test_user_errors_are_clean(env, capsys, argv, message):
     env.responses(VALID_DIAGNOSIS)
     assert main.main(argv) == 1
     err = capsys.readouterr().err
-    assert f"Erro: " in err and message in err
+    assert "Erro: " in err and message in err
     assert "Traceback" not in err
 
 
@@ -137,7 +141,16 @@ def test_missing_api_key_is_clean(env, capsys, monkeypatch):
 
 
 def test_ticket_add(env, capsys):
-    argv = ["ticket", "add", "--customer", "C003", "--title", "Maquininha", "--description", "A maquininha não conecta."]
+    argv = [
+        "ticket",
+        "add",
+        "--customer",
+        "C003",
+        "--title",
+        "Maquininha",
+        "--description",
+        "A maquininha não conecta.",
+    ]
     assert main.main(argv) == 0
     assert "Ticket T007 criado para C003 · Carlos." in capsys.readouterr().out
     tickets = json.loads((env.root / "data" / "tickets.json").read_text(encoding="utf-8"))
@@ -170,7 +183,10 @@ COMPARE_HEADER = "=== Comparação · Diagnóstico · T001 · Maria ==="
 
 def _rubric_file(root, v1=(2, 1, 2), v2=(4, 5, 4)):
     data = {
-        version: {key: {"score": score, "justification": f"{version} {key}"} for key, score in zip(CRITERIA, scores)}
+        version: {
+            key: {"score": score, "justification": f"{version} {key}"}
+            for key, score in zip(CRITERIA, scores, strict=True)
+        }
         for version, scores in (("v1", v1), ("v2", v2))
     }
     path = root / "rubrica.json"

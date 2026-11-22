@@ -73,9 +73,7 @@ def test_ticket_text_change_changes_key():
 
 def test_history_content_change_changes_key():
     # Mudar a resolução do T005 (histórico do T001) muda a chave.
-    tickets = [
-        t.model_copy(update={"resolution": "Outra resolução."}) if t.id == "T005" else t for t in TICKETS
-    ]
+    tickets = [t.model_copy(update={"resolution": "Outra resolução."}) if t.id == "T005" else t for t in TICKETS]
     assert _key(tickets=tickets) != BASE_KEY
 
 

@@ -4,6 +4,7 @@ import pytest
 from google.genai import errors, types
 
 from app.llm_client import (
+    _TIMEOUT_ERRORS,
     GeminiClient,
     LLMAuthError,
     LLMBlockedError,
@@ -11,7 +12,6 @@ from app.llm_client import (
     LLMError,
     LLMRateLimitError,
     LLMTimeoutError,
-    _TIMEOUT_ERRORS,
 )
 from app.models import Diagnosis
 
@@ -95,9 +95,7 @@ def test_real_sdk_client_uses_v1beta_and_timeout():
 
 
 def test_rate_limit_retries_with_exponential_backoff():
-    client, sdk, sleeps = _client(
-        _api_error(errors.ClientError, 429), _api_error(errors.ClientError, 429), _response()
-    )
+    client, sdk, sleeps = _client(_api_error(errors.ClientError, 429), _api_error(errors.ClientError, 429), _response())
     assert _generate(client).attempts == 3
     assert sleeps == [1.0, 2.0]
 

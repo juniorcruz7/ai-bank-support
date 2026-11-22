@@ -34,9 +34,7 @@ class Settings:
 def _require(name: str) -> str:
     value = os.getenv(name, "").strip()
     if not value:
-        raise ConfigError(
-            f"{name} não definida. Copie .env.example para .env e preencha {name}."
-        )
+        raise ConfigError(f"{name} não definida. Copie .env.example para .env e preencha {name}.")
     return value
 
 

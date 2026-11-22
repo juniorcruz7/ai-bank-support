@@ -83,4 +83,6 @@ def test_invalid_decision_tree(tree, message):
 
 def test_shared_subtree_is_not_a_cycle():
     # Dois caminhos chegando ao mesmo nó é permitido (DAG), só ciclo não.
-    FlowSummary.model_validate(_tree(_decision("n1", "n2", "n3"), _decision("n2", "n3", "n4"), _action("n3"), _action("n4")))
+    FlowSummary.model_validate(
+        _tree(_decision("n1", "n2", "n3"), _decision("n2", "n3", "n4"), _action("n3"), _action("n4"))
+    )
