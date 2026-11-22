@@ -201,6 +201,7 @@ ai-bank-support/
 │   ├── llm_client.py        # interface única + implementação Gemini
 │   ├── cache.py             # chave SHA-256 + busca em runs/
 │   ├── storage.py           # leitura/escrita segura de runs e tickets
+│   ├── service.py           # orquestra prompt → cache → LLM → runs/ (e permissões)
 │   ├── auth.py              # login, hash de senha, checagem de permissão
 │   └── compare.py           # roda v1 × v2 e coleta a rubrica
 ├── prompts/
