@@ -188,9 +188,11 @@ def cmd_generate(args: argparse.Namespace) -> int:
     if not version:
         versions = list_versions(PROMPTS_DIR)
         default = DEFAULT_VERSION if DEFAULT_VERSION in versions else versions[-1]
+        # Menu de versão só no fluxo por menus; com flags, sem --version, vale o padrão.
+        in_menu_flow = args.type is None
         version = (
             _choose(f"Escolha a versão do prompt (padrão {default}):", [(v, v) for v in versions], default)
-            if is_interactive()
+            if in_menu_flow
             else default
         )
 

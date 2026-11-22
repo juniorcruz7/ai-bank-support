@@ -80,6 +80,13 @@ def test_version_defaults_to_v2(env, capsys):
     assert "· v2 ===" in capsys.readouterr().out
 
 
+def test_flags_without_version_skip_menu_even_in_terminal(env, capsys):
+    env.answers()  # terminal interativo, mas nenhuma resposta disponível
+    env.responses(VALID_DIAGNOSIS)
+    assert _generate("--type", "diagnosis") == 0
+    assert "· v2 ===" in capsys.readouterr().out
+
+
 def test_ticket_alone_infers_customer(env, capsys):
     env.responses(VALID_DIAGNOSIS)
     assert main.main(["generate", "--ticket", "T001", "--type", "diagnosis"]) == 0
