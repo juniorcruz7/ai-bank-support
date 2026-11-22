@@ -3,10 +3,10 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models import MAX_DESCRIPTION_LENGTH, Profile, Ticket
+from app.models import MAX_DESCRIPTION_LENGTH, MIN_DESCRIPTION_LENGTH, Profile, Ticket
 
 VALID_PROFILE = {
-    "id": "dona_maria",
+    "id": "C001",
     "name": "Maria",
     "technical_level": "leigo",
     "communication_style": "didatico",
@@ -15,7 +15,7 @@ VALID_PROFILE = {
 
 VALID_TICKET = {
     "id": "T001",
-    "customer_id": "dona_maria",
+    "customer_id": "C001",
     "created_at": "2026-11-20T21:05:00-03:00",
     "title": "Pix não chegou",
     "description": "Fiz um Pix e não chegou.",
@@ -41,20 +41,35 @@ def test_profile_rejects_value_outside_list(field, value):
         Profile.model_validate({**VALID_PROFILE, field: value})
 
 
+@pytest.mark.parametrize("profile_id", ["dona_maria", "C1", "c001", "X001"])
+def test_profile_rejects_bad_id_format(profile_id):
+    with pytest.raises(ValidationError):
+        Profile.model_validate({**VALID_PROFILE, "id": profile_id})
+
+
 def test_profile_rejects_extra_field():
     with pytest.raises(ValidationError):
         Profile.model_validate({**VALID_PROFILE, "cpf": "000"})
 
 
 def test_valid_ticket_strips_text():
-    ticket = Ticket.model_validate({**VALID_TICKET, "description": "  texto  "})
-    assert ticket.description == "texto"
+    ticket = Ticket.model_validate({**VALID_TICKET, "description": "  Pix não chegou  "})
+    assert ticket.description == "Pix não chegou"
 
 
 @pytest.mark.parametrize("description", ["", "   \n\t "])
 def test_ticket_rejects_empty_description(description):
     with pytest.raises(ValidationError, match="descrição vazio"):
         Ticket.model_validate({**VALID_TICKET, "description": description})
+
+
+def test_ticket_rejects_too_short_description():
+    with pytest.raises(ValidationError, match=f"mínimo {MIN_DESCRIPTION_LENGTH}"):
+        Ticket.model_validate({**VALID_TICKET, "description": "a" * (MIN_DESCRIPTION_LENGTH - 1)})
+
+
+def test_ticket_accepts_description_at_minimum():
+    Ticket.model_validate({**VALID_TICKET, "description": "a" * MIN_DESCRIPTION_LENGTH})
 
 
 def test_ticket_rejects_too_long_description():

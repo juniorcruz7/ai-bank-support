@@ -10,14 +10,17 @@ Channel = Literal["chat", "email", "telefone"]
 TicketStatus = Literal["aberto", "resolvido"]
 
 MAX_TITLE_LENGTH = 120
+MIN_DESCRIPTION_LENGTH = 10
 MAX_DESCRIPTION_LENGTH = 2000
 
 
-def _clean_text(value: str, field: str, max_length: int) -> str:
-    """Remove espaços das pontas e valida texto não vazio e dentro do limite."""
+def _clean_text(value: str, field: str, max_length: int, min_length: int = 1) -> str:
+    """Remove espaços das pontas e valida texto não vazio e dentro dos limites."""
     value = value.strip()
     if not value:
         raise ValueError(f"{field} vazio")
+    if len(value) < min_length:
+        raise ValueError(f"{field} com {len(value)} caracteres; mínimo {min_length}")
     if len(value) > max_length:
         raise ValueError(f"{field} com {len(value)} caracteres; máximo {max_length}")
     return value
@@ -28,7 +31,7 @@ class Profile(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    id: str = Field(pattern=r"^[a-z0-9_]+$")
+    id: str = Field(pattern=r"^C\d{3,}$")
     name: str = Field(min_length=1)
     technical_level: TechnicalLevel
     communication_style: CommunicationStyle
@@ -56,7 +59,7 @@ class Ticket(BaseModel):
     @field_validator("description")
     @classmethod
     def _validate_description(cls, value: str) -> str:
-        return _clean_text(value, "descrição", MAX_DESCRIPTION_LENGTH)
+        return _clean_text(value, "descrição", MAX_DESCRIPTION_LENGTH, MIN_DESCRIPTION_LENGTH)
 
     @model_validator(mode="after")
     def _resolved_needs_resolution(self) -> "Ticket":

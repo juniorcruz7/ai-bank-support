@@ -29,7 +29,7 @@ def test_overwrites_existing_file(tmp_path):
 
 
 def test_creates_missing_folders(tmp_path):
-    path = tmp_path / "runs" / "dona_maria" / "T001" / "run.json"
+    path = tmp_path / "runs" / "C001" / "T001" / "run.json"
     write_json_atomic(path, [])
     assert path.exists()
 

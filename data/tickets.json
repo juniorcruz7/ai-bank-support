@@ -1,7 +1,7 @@
 [
   {
     "id": "T001",
-    "customer_id": "dona_maria",
+    "customer_id": "C001",
     "created_at": "2026-11-20T21:05:00-03:00",
     "title": "Pix não chegou",
     "description": "Fiz um Pix de R$ 350 pro meu filho ontem às 21h, saiu da conta mas ele não recebeu. No app aparece 'em processamento'.",
@@ -10,7 +10,7 @@
   },
   {
     "id": "T002",
-    "customer_id": "lucas",
+    "customer_id": "C002",
     "created_at": "2026-11-18T14:30:00-03:00",
     "title": "Cartão recusado em compra internacional",
     "description": "Meu cartão é recusado em compra internacional, mas no mercado funciona normal.",
@@ -19,7 +19,7 @@
   },
   {
     "id": "T003",
-    "customer_id": "ana_dev",
+    "customer_id": "C005",
     "created_at": "2026-11-19T09:12:00-03:00",
     "title": "SMS de validação do aparelho não chega",
     "description": "Troquei de celular e o app pede pra validar o aparelho, mas o SMS com o código nunca chega.",
@@ -28,7 +28,7 @@
   },
   {
     "id": "T004",
-    "customer_id": "carlos_mei",
+    "customer_id": "C003",
     "created_at": "2026-11-06T10:00:00-03:00",
     "title": "Pix agendado não foi realizado",
     "description": "Agendei um Pix pro dia 5 e ele não foi feito. O aluguel atrasou.",
@@ -37,7 +37,7 @@
   },
   {
     "id": "T005",
-    "customer_id": "dona_maria",
+    "customer_id": "C001",
     "created_at": "2026-10-15T22:10:00-03:00",
     "title": "Erro ao fazer Pix à noite",
     "description": "Não consigo fazer Pix de noite, dá erro.",
@@ -46,7 +46,7 @@
   },
   {
     "id": "T006",
-    "customer_id": "carlos_mei",
+    "customer_id": "C003",
     "created_at": "2026-09-02T16:40:00-03:00",
     "title": "Pix recebido não aparece no saldo",
     "description": "Recebi Pix de cliente e o valor não apareceu no saldo.",
