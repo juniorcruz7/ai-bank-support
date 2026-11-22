@@ -149,3 +149,14 @@ def build_prompt(
         user=f"{context}\n\n{task}",
         context_ticket_ids=tuple(t.id for t in history),
     )
+
+
+RETRY_TEMPLATE = "retry.md"
+
+
+def build_retry_note(version: str, validation_error: str, prompts_dir: Path = PROMPTS_DIR) -> str | None:
+    """Texto anexado ao prompt no retry após saída inválida (None se a versão não tiver retry.md)."""
+    path = prompts_dir / version / RETRY_TEMPLATE
+    if not path.exists():
+        return None
+    return _render(path, {"validation_error": validation_error})
