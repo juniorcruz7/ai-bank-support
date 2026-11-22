@@ -9,7 +9,18 @@ Execuções reais copiadas de `runs/` (geradas com `gemini-2.5-flash`, temperatu
 | `03_resolution_steps_v2.json` | Passo a passo para a cliente |
 | `04_clarifying_questions_v2.json` | Perguntas de esclarecimento priorizadas |
 | `05_flow_summary_v2.json` | Árvore de decisão (o desenho ASCII é feito pela CLI) |
+| `06_compare_resolution_steps_v1_rubric.json` | Comparação v1 × v2 do passo a passo: execução da **v1** com a rubrica no campo `evaluation` |
+| `07_compare_resolution_steps_v2_rubric.json` | A mesma comparação: execução da **v2** (veio do cache) com a rubrica; mesmo `comparison_id` da 06 |
 | `cache_log.txt` | Trecho do `logs/app.log` com o cache miss e, depois, o cache hit da mesma entrada |
+
+Resultado da rubrica (notas de 1 a 5; justificativas completas nos arquivos 06 e 07 e no [PROMPT_ENGINEERING_NOTES.md](../PROMPT_ENGINEERING_NOTES.md#3-resultados)):
+
+| Critério | v1 | v2 |
+| --- | --- | --- |
+| Clareza | 3 | 4 |
+| Adequação ao cliente | 2 | 5 |
+| Acionabilidade | 3 | 2 |
+| **Total** | **8** | **11** |
 
 ## Formato do arquivo de rubrica (`compare --rubric`)
 

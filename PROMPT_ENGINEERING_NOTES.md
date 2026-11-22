@@ -68,32 +68,47 @@ Para a comparação ser justa, tudo é igual entre as versões: perfil, ticket, 
 
 ### Rubrica
 
-Cenário: **T001 + C001** (Maria: leiga, didática, telefone), tipo `resolution_steps`.
+Cenário: **T001 + C001** (Maria: leiga, didática, telefone), tipo `resolution_steps`, comando `python main.py compare --customer C001 --ticket T001 --type resolution_steps`. As execuções avaliadas estão em [samples/06](samples/06_compare_resolution_steps_v1_rubric.json) e [samples/07](samples/07_compare_resolution_steps_v2_rubric.json) (mesmo `comparison_id`). A saída da v2 veio do cache: é a mesma geração de uma execução anterior com entrada e configuração idênticas.
 
-> **TODO (autor):** rodar `python main.py compare --customer C001 --ticket T001 --type resolution_steps` e preencher a tabela com as notas e justificativas digitadas.
+| Critério | v1 | v2 |
+| --- | --- | --- |
+| Clareza | 3 | 4 |
+| Adequação ao cliente | 2 | 5 |
+| Acionabilidade | 3 | 2 |
+| **Total** | **8** | **11** |
 
-| Critério | v1 | v2 | Justificativa |
-| --- | --- | --- | --- |
-| Clareza | TODO | TODO | TODO |
-| Adequação ao cliente | TODO | TODO | TODO |
-| Acionabilidade | TODO | TODO | TODO |
-| **Total** | TODO | TODO | |
+Justificativas registradas:
 
-### Por que a v2 é melhor
+**v1**
 
-> **TODO (autor):** conclusão a partir das notas. Pontos observados que podem sustentá-la:
+- **Clareza (3):** Os passos são organizados, mas longos, e o texto mistura dois leitores: fala com a cliente ("sua conta") e, no passo 5, com o atendente ("Oriente a cliente"). O "Quando escalar" é um resumo do caso, não uma regra de quando escalar.
+- **Adequação ao cliente (2):** Não é didático para uma leiga ao telefone: usa termos como "compensação" e "horários de pico" e não diz onde tocar no app. Pior: manda "tentar novamente" sem confirmar o status, o que pode gerar um Pix em duplicidade.
+- **Acionabilidade (3):** Chega à causa mais provável. O passo 5 usa o histórico do limite noturno (T005), que era a pegadinha do cenário. Mas a orientação de refazer o Pix é arriscada, e o "aguarde 30 minutos" promete um prazo que a persona não deveria prometer.
 
-Observações de uma execução real do passo a passo (T001 + C001, mesma configuração):
+**v2**
+
+- **Clareza (4):** Muito clara, linear e sempre falando com a cliente. Perde um ponto por inventar nomes de menu ("Meu Dinheiro") que o modelo não tem como saber, o que pode confundir se o app não tiver essa opção.
+- **Adequação ao cliente (5):** Tem exatamente o tom de perfil leigo, didático e por telefone: explica onde tocar, dá contexto ("É onde ficam suas movimentações"), usa 4 passos e evita jargão. Dá para ler em voz alta.
+- **Acionabilidade (2):** Termina em "identifique o status" e não diz o que fazer com cada status. Ignora o histórico do limite noturno, que era a causa mais provável, e não avisa para não refazer o Pix. A cliente descobre o estado, mas não sabe o próximo passo.
+
+Dados objetivos das duas saídas:
 
 | | v1 | v2 |
 | --- | --- | --- |
 | Passos | 5 | 4 (respeita o limite de 5 do canal telefone) |
-| Linguagem | Mais técnica ("seção Meus Limites Pix", "status Falha/Cancelado") | Simples, uma ação por passo, pronta para ler em voz alta |
-| Prazo prometido | Sim ("até 30 minutos", "mais de 1 hora") | Não |
-| Uso do histórico (T005) | Sim: sugere verificar o limite noturno | Não citou o limite noturno |
-| Tokens de entrada / saída | 221 / 696 | 850 / 474 |
+| Com quem fala | Mistura cliente e atendente ("Oriente a cliente") | Sempre com a cliente |
+| Prazo prometido | Sim ("mais de 30 minutos") | Não |
+| Orientação arriscada | "Tentar novamente" sem confirmar o status (risco de Pix duplicado) | Nenhuma |
+| Uso do histórico (T005) | Sim: verificar o limite noturno | Não |
+| Tokens de entrada / saída | 221 / 664 | 850 / 484 |
 
-A v2 ganhou em adequação ao cliente e em respeito aos limites do domínio, com uma resposta mais curta. O prompt maior (~4× mais tokens de entrada) é o custo dessa adaptação.
+### Por que a v2 é melhor (e onde ainda não é)
+
+A v2 venceu por **11 a 8**, e a diferença está exatamente onde a hipótese da v2 apostava: traduzir o perfil em regras concretas melhorou a **adequação ao cliente** (2 → 5) e a **clareza** (3 → 4). O texto fala só com a cliente, cabe no limite de passos do telefone, evita jargão e não promete prazo nem manda refazer o Pix. São efeitos diretos das regras de perfil e dos limites da persona, que a v1 não tem.
+
+A v2, porém, perdeu em **acionabilidade** (3 → 2). Ela ficou boa em *como* falar, mas parou cedo: leva a cliente até o status do Pix e não diz o que fazer com ele, e ignorou o histórico do limite noturno que a v1 usou. A provável causa é a instrução "o histórico é evidência fraca", que inibiu a hipótese em vez de só controlar o peso dela, somada à falta de uma regra que exija um próximo passo para cada resultado possível.
+
+O custo da v2 é um prompt ~4× maior em tokens de entrada (850 contra 221), com uma resposta mais curta.
 
 ### Falhas encontradas na v2
 
@@ -103,6 +118,8 @@ As execuções reais mostraram pontos em que a v2 ainda não faz o que o prompt 
 2. **Perguntou o que já estava no ticket.** As perguntas da v2 pediram "data e hora" e "qual status aparece", e o ticket já dizia "ontem às 21h" e "em processamento", apesar da regra "não pergunte o que já está no ticket".
 3. **Prometeu prazo no fluxograma.** Uma ação diz "o Pix pode levar até 1 hora", contra o limite "não prometer prazo".
 4. **MED fora do lugar.** Uma versão do fluxograma indicou o MED do Pix para "chave errada"; o MED é para golpe ou fraude.
+5. **Passo a passo que para no meio.** O passo a passo leva a cliente até o status do Pix, mas não diz o que fazer com cada status (o "Se não der certo" do último passo é "me diga o que aparece").
+6. **Nomes de menu inventados.** "Meu Dinheiro", "Atividade": o modelo não conhece o app e preenche a lacuna com nomes plausíveis, o que pode confundir a cliente.
 
 São regras escritas no prompt que o modelo nem sempre segue, o que motiva os próximos passos abaixo.
 
@@ -129,7 +146,11 @@ São regras escritas no prompt que o modelo nem sempre segue, o que motiva os pr
 
 **Próximos passos**
 
-- **v3** com: instrução explícita para considerar hipóteses sugeridas pelo histórico e pedir confirmação antes de afirmar; checagem de "isso já está no ticket?" antes de cada pergunta; e exemplos negativos de prazo prometido.
+- **v3** para recuperar a acionabilidade sem perder a adequação, com:
+  - instrução explícita para considerar hipóteses sugeridas pelo histórico e pedir confirmação antes de afirmar (no T001, checar o limite noturno);
+  - regra de que o último passo cubra cada resultado possível ("se aparecer X, faça Y") e avise para não refazer uma transação antes de confirmar o status;
+  - proibição de inventar nomes de menu: descrever a função ("a lista de movimentações") em vez de um rótulo;
+  - checagem de "isso já está no ticket?" antes de cada pergunta e exemplos negativos de prazo prometido.
 - **Mais cenários na comparação** (um por perfil) e várias execuções por versão, para comparar médias.
 - **Avaliação automática como apoio** (*LLM-as-judge*) em campo separado (`auto_evaluation`), sem substituir a nota humana.
 - **Checagens automáticas** de regras objetivas: número de passos por canal, presença de prazo em minutos/horas, pedido de senha ou código SMS.

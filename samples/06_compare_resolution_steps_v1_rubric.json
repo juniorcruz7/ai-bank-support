@@ -1,0 +1,83 @@
+{
+  "run_id": "7fd03a86-c566-4efa-9b47-111838faf808",
+  "timestamp": "2026-11-22T16:23:51.452193-03:00",
+  "customer_id": "C001",
+  "ticket": {
+    "id": "T001",
+    "title": "Pix não chegou",
+    "text": "Fiz um Pix de R$ 350 pro meu filho ontem às 21h, saiu da conta mas ele não recebeu. No app aparece 'em processamento'."
+  },
+  "content_type": "resolution_steps",
+  "prompt_version": "v1",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [
+    "T005"
+  ],
+  "template_hash": "6a87fef3e791a8adb7bcf4a4d537ba9abafb8b4ac21381a200be59d23c1c3d38",
+  "cache_key": "c701361ca7fdaf8f324c61c80587ef369c4d93b71ad547e1b7c65628b2dbd416",
+  "cache_hit": false,
+  "output": {
+    "steps": [
+      {
+        "order": 1,
+        "action": "Verificar o extrato da sua conta para confirmar se o valor do Pix foi debitado.",
+        "expected_result": "O valor de R$ 350 deve aparecer como debitado da sua conta.",
+        "if_fails": "Se o valor não foi debitado, o Pix não foi enviado. Peça para tentar novamente."
+      },
+      {
+        "order": 2,
+        "action": "Pedir para o seu filho verificar o extrato da conta dele para confirmar se o valor foi creditado.",
+        "expected_result": "O valor de R$ 350 deve aparecer como creditado na conta do seu filho.",
+        "if_fails": "Se o valor não foi creditado, o Pix não chegou na conta dele."
+      },
+      {
+        "order": 3,
+        "action": "No seu aplicativo, acesse a seção 'Pix' e procure pelo histórico de transações. Encontre a transação do Pix de R$ 350 e verifique o status.",
+        "expected_result": "O status da transação deve ser 'Concluído' ou 'Em processamento'.",
+        "if_fails": "Se o status for 'Falha' ou 'Cancelado', o Pix não foi realizado. Peça para tentar novamente."
+      },
+      {
+        "order": 4,
+        "action": "Se o status for 'Em processamento', aguarde alguns minutos. Em alguns casos, pode haver um pequeno atraso na compensação do Pix, especialmente em horários de pico.",
+        "expected_result": "O status deve mudar para 'Concluído' e o valor ser creditado na conta do seu filho.",
+        "if_fails": "Se o status permanecer 'Em processamento' por mais de 30 minutos, pode haver um problema."
+      },
+      {
+        "order": 5,
+        "action": "Verificar se o limite noturno do Pix está configurado para um valor inferior a R$ 350. Você pode fazer isso acessando 'Pix' > 'Meus Limites Pix' no aplicativo.",
+        "expected_result": "O limite noturno deve ser igual ou superior a R$ 350.",
+        "if_fails": "Se o limite for inferior, o Pix pode ter sido bloqueado. Oriente a cliente a ajustar o limite e tentar novamente."
+      }
+    ],
+    "escalation_note": "O Pix de R$ 350 feito ontem às 21h para o filho da cliente está 'em processamento'. O histórico mostra que a cliente já teve problemas com limite noturno. O passo a passo inclui verificar extratos, status da transação e o limite noturno. Se após essas verificações o problema persistir, será necessário investigar a transação internamente, pois pode ser um problema de instabilidade ou falha na comunicação entre as instituições financeiras."
+  },
+  "usage": {
+    "input_tokens": 221,
+    "output_tokens": 664,
+    "latency_ms": 3718,
+    "llm_calls": 1,
+    "http_attempts": 1
+  },
+  "evaluation": {
+    "comparison_id": "0559cb46-4dae-4498-8fc3-c3f9c2fa677d",
+    "clarity": {
+      "score": 3,
+      "justification": "Os passos são organizados, mas longos, e o texto mistura dois leitores: fala com a cliente (\"sua conta\") e, no passo 5, com o atendente (\"Oriente a cliente\"). O \"Quando escalar\" é um resumo do caso, não uma regra de quando escalar."
+    },
+    "customer_fit": {
+      "score": 2,
+      "justification": "Não é didático para uma leiga ao telefone: usa termos como \"compensação\" e \"horários de pico\" e não diz onde tocar no app. Pior: manda \"tentar novamente\" sem confirmar o status, o que pode gerar um Pix em duplicidade."
+    },
+    "actionability": {
+      "score": 3,
+      "justification": "Chega à causa mais provável. O passo 5 usa o histórico do limite noturno (T005), que era a pegadinha do cenário. Mas a orientação de refazer o Pix é arriscada, e o \"aguarde 30 minutos\" promete um prazo que a persona não deveria prometer."
+    },
+    "evaluated_at": "2026-11-22T16:37:55.343459-03:00"
+  }
+}
