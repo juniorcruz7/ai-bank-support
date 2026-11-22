@@ -10,39 +10,14 @@ from app.generators import (
     generate_diagnosis,
     generate_flow_summary,
 )
-from app.llm_client import LLMResponse
 from app.models import Diagnosis
 from app.prompt_builder import build_prompt
 from app.storage import load_profiles, load_tickets
+from tests.fakes import VALID_DIAGNOSIS, FakeClient
 
 PROFILES = load_profiles()
 TICKETS = load_tickets(PROFILES)
 T001 = next(t for t in TICKETS if t.id == "T001")
-
-VALID_DIAGNOSIS = json.dumps(
-    {
-        "hypotheses": [{"description": "Limite noturno de R$ 200", "probability": "alta"}],
-        "evidence": ["Pix de R$ 350 às 21h"],
-        "missing_info": ["ID da transação"],
-        "likely_conclusion": "Provável retenção pelo limite noturno.",
-    }
-)
-
-
-class FakeClient:
-    """Implementa a interface LLMClient devolvendo respostas programadas."""
-
-    provider = "fake"
-    model = "fake-model"
-    config = {"temperature": 0.0, "max_tokens": 100}
-
-    def __init__(self, *texts: str):
-        self._texts = list(texts)
-        self.calls: list[dict] = []
-
-    def generate(self, system, user, response_model):
-        self.calls.append({"system": system, "user": user, "response_model": response_model})
-        return LLMResponse(text=self._texts.pop(0), input_tokens=10, output_tokens=5, latency_ms=1, attempts=1)
 
 
 def _prompt(content_type="diagnosis", version="v2"):

@@ -9,11 +9,17 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from app.models import Profile, Ticket
+from app.models import Profile, Run, Ticket
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = ROOT_DIR / "data"
 PROFILES_PATH = DATA_DIR / "profiles.json"
 TICKETS_PATH = DATA_DIR / "tickets.json"
+RUNS_DIR = ROOT_DIR / "runs"
+
+# O nome do arquivo termina com o começo da chave de cache: o cache acha a
+# execução por glob, sem abrir todos os arquivos da pasta.
+CACHE_KEY_PREFIX_LENGTH = 16
 
 MIN_PROFILES = 3
 MAX_PROFILES = 5
@@ -129,3 +135,28 @@ def get_profile(profiles: dict[str, Profile], profile_id: str) -> Profile:
     except KeyError:
         available = ", ".join(profiles)
         raise DataError(f"Perfil {profile_id!r} não existe. Disponíveis: {available}.") from None
+
+
+# --- Execuções (runs/) -------------------------------------------------------
+
+
+def run_folder(customer_id: str, ticket_id: str, runs_dir: Path = RUNS_DIR) -> Path:
+    return runs_dir / customer_id / ticket_id
+
+
+def save_run(run: Run, runs_dir: Path = RUNS_DIR) -> Path:
+    """Grava a execução de forma atômica e retorna o caminho do JSON."""
+    stamp = run.timestamp.strftime("%Y%m%dT%H%M%S")
+    key_prefix = run.cache_key[:CACHE_KEY_PREFIX_LENGTH]
+    name = f"{stamp}_{run.content_type}_{run.prompt_version}_{run.run_id[:8]}_{key_prefix}.json"
+    path = run_folder(run.customer_id, run.ticket.id, runs_dir) / name
+    write_json_atomic(path, run.model_dump(mode="json"))
+    return path
+
+
+def run_files_with_key(customer_id: str, ticket_id: str, cache_key: str, runs_dir: Path = RUNS_DIR) -> list[Path]:
+    """Arquivos cujo nome bate com o prefixo da chave, do mais novo ao mais antigo."""
+    folder = run_folder(customer_id, ticket_id, runs_dir)
+    if not folder.is_dir():
+        return []
+    return sorted(folder.glob(f"*_{cache_key[:CACHE_KEY_PREFIX_LENGTH]}.json"), reverse=True)

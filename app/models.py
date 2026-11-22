@@ -1,6 +1,6 @@
 """Modelos Pydantic: Profile, Ticket, saídas por tipo e Evaluation."""
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -226,3 +226,45 @@ class FlowSummary(BaseModel):
     """RF07: árvore de decisão; o desenho em ASCII é feito pelo código."""
 
     decision_tree: DecisionTree
+
+
+# --- Registro de execução (runs/) -------------------------------------------
+
+ContentType = Literal["diagnosis", "resolution_steps", "clarifying_questions", "flow_summary"]
+
+
+class RunTicket(BaseModel):
+    id: str
+    title: str
+    text: str
+
+
+class RunUsage(BaseModel):
+    """Custo da chamada ao LLM (RNF11); ausente quando a saída veio do cache."""
+
+    input_tokens: int | None
+    output_tokens: int | None
+    latency_ms: int
+    llm_calls: int  # 2 quando houve retry por saída inválida
+    http_attempts: int  # inclui retentativas por 429/5xx/timeout
+
+
+class Run(BaseModel):
+    """Uma execução gravada em runs/<customer_id>/<ticket_id>/ (RF09)."""
+
+    run_id: str
+    timestamp: AwareDatetime
+    customer_id: str
+    ticket: RunTicket
+    content_type: ContentType
+    prompt_version: str
+    provider: str
+    model: str
+    config: dict[str, Any]
+    context_ticket_ids: list[str]
+    template_hash: str
+    cache_key: str
+    cache_hit: bool
+    output: dict[str, Any]
+    usage: RunUsage | None = None
+    evaluation: dict[str, Any] | None = None  # preenchido na comparação (fase 7)

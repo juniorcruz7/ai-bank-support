@@ -1,5 +1,6 @@
 """Montagem do prompt por camadas, versão e histórico do cliente."""
 
+import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,7 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 CONTENT_TYPES = ("diagnosis", "resolution_steps", "clarifying_questions", "flow_summary")
 BASE_TEMPLATES = ("system.md", "context.md")
 PROFILE_RULES_FILE = "profile_rules.json"
+RETRY_TEMPLATE = "retry.md"
 PROFILE_RULE_FIELDS = {
     "technical_level": "Nível técnico",
     "communication_style": "Estilo",
@@ -36,6 +38,7 @@ class BuiltPrompt:
     system: str
     user: str
     context_ticket_ids: tuple[str, ...]
+    template_hash: str  # SHA-256 dos templates usados; entra na chave de cache
 
 
 def list_versions(prompts_dir: Path = PROMPTS_DIR) -> list[str]:
@@ -148,10 +151,19 @@ def build_prompt(
         system=system,
         user=f"{context}\n\n{task}",
         context_ticket_ids=tuple(t.id for t in history),
+        template_hash=_hash_templates(version_dir, content_type),
     )
 
 
-RETRY_TEMPLATE = "retry.md"
+def _hash_templates(version_dir: Path, content_type: str) -> str:
+    """Hash dos arquivos que afetam este tipo: editar um deles invalida o cache."""
+    digest = hashlib.sha256()
+    for name in (*BASE_TEMPLATES, f"{content_type}.md", PROFILE_RULES_FILE, RETRY_TEMPLATE):
+        path = version_dir / name
+        if path.exists():
+            digest.update(name.encode("utf-8") + b"\0" + path.read_bytes() + b"\0")
+    return digest.hexdigest()
+
 
 
 def build_retry_note(version: str, validation_error: str, prompts_dir: Path = PROMPTS_DIR) -> str | None:
