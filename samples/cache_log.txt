@@ -1,0 +1,5 @@
+# Trecho real de logs/app.log: o passo a passo do T001 (v2) é gerado uma vez (cache miss)
+# e, na repetição com a mesma entrada, reaproveitado sem chamar a API (cache hit).
+2026-11-22 14:52:51,572 INFO app.service: cache miss: T001 resolution_steps v2 (chave eab1dc219df0); chamando gemini/gemini-2.5-flash
+2026-11-22 14:52:54,547 INFO app.service: LLM ok: T001 resolution_steps v2 em 2959 ms, tokens entrada/saída 850/484, chamadas 1
+2026-11-22 16:06:32,780 INFO app.service: cache hit: T001 resolution_steps v2 (chave eab1dc219df0)

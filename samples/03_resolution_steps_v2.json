@@ -1,0 +1,62 @@
+{
+  "run_id": "b3b75887-ee42-4c30-b7a2-aa2f2b412bf7",
+  "timestamp": "2026-11-22T14:52:54.547974-03:00",
+  "customer_id": "C001",
+  "ticket": {
+    "id": "T001",
+    "title": "Pix não chegou",
+    "text": "Fiz um Pix de R$ 350 pro meu filho ontem às 21h, saiu da conta mas ele não recebeu. No app aparece 'em processamento'."
+  },
+  "content_type": "resolution_steps",
+  "prompt_version": "v2",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [
+    "T005"
+  ],
+  "template_hash": "e84f38af10002e2e799268aa0c7e3978f21cf477c432d35cf4712b0f3b3eae90",
+  "cache_key": "eab1dc219df0e1411f29559b13833ace61d4ce83693fd8fb5743874e42108446",
+  "cache_hit": false,
+  "output": {
+    "steps": [
+      {
+        "order": 1,
+        "action": "Por favor, abra o aplicativo do banco no seu celular.",
+        "expected_result": "Você verá a tela inicial do aplicativo.",
+        "if_fails": "Se não conseguir abrir o aplicativo, tente reiniciar o celular e abrir novamente."
+      },
+      {
+        "order": 2,
+        "action": "Na tela inicial, procure pela opção 'Extrato' ou 'Meu Dinheiro' e toque nela. É onde ficam todas as suas movimentações.",
+        "expected_result": "Você verá uma lista com todas as suas transações recentes, como pagamentos e recebimentos.",
+        "if_fails": "Se não encontrar, procure por um ícone de 'Histórico' ou 'Atividade'."
+      },
+      {
+        "order": 3,
+        "action": "Dentro do extrato, procure pela transação do Pix que você fez para seu filho, no valor de 350 reais, que foi ontem à noite. Toque nessa transação para ver os detalhes.",
+        "expected_result": "Você verá uma tela com informações mais detalhadas sobre esse Pix, como a data, o valor e o nome de quem recebeu.",
+        "if_fails": "Se não encontrar a transação, tente rolar a tela para baixo ou usar a opção de filtro por data, se houver."
+      },
+      {
+        "order": 4,
+        "action": "Nessa tela de detalhes, verifique qual é o 'status' da transação. Pode estar escrito 'Concluído', 'Em processamento' ou 'Falhou'.",
+        "expected_result": "Você conseguirá identificar o status atual do Pix.",
+        "if_fails": "Se não encontrar o status, me diga o que aparece na tela de detalhes da transação."
+      }
+    ],
+    "escalation_note": "Se o status da transação ainda for 'Em processamento' após seguir os passos, ou se o cliente não conseguir visualizar a transação no extrato, será necessário escalar para a equipe de suporte técnico para verificação interna do sistema e da transação Pix."
+  },
+  "usage": {
+    "input_tokens": 850,
+    "output_tokens": 484,
+    "latency_ms": 2959,
+    "llm_calls": 1,
+    "http_attempts": 1
+  },
+  "evaluation": null
+}

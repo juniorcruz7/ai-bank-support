@@ -1,0 +1,61 @@
+{
+  "run_id": "6e911884-37b2-4cae-8ccc-c8aa74b6ef77",
+  "timestamp": "2026-11-22T14:22:44.942967-03:00",
+  "customer_id": "C001",
+  "ticket": {
+    "id": "T001",
+    "title": "Pix não chegou",
+    "text": "Fiz um Pix de R$ 350 pro meu filho ontem às 21h, saiu da conta mas ele não recebeu. No app aparece 'em processamento'."
+  },
+  "content_type": "diagnosis",
+  "prompt_version": "v2",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [
+    "T005"
+  ],
+  "template_hash": "09d694e256894785b624c5734e6dd5f58b23c77c6790f7f7031c6f8f5b311ee8",
+  "cache_key": "e19e3d93de62ac2f3e5816cadf1fb068a20de625d3b8bf810aae7dd50af4d5c0",
+  "cache_hit": true,
+  "output": {
+    "hypotheses": [
+      {
+        "description": "Pix retido para análise de segurança devido ao valor ou perfil da transação. O status 'em processamento' é consistente com essa hipótese.",
+        "probability": "alta"
+      },
+      {
+        "description": "Instabilidade temporária no sistema Pix do banco do destinatário, causando atraso no crédito. O valor saiu da conta de origem, indicando que a transação foi enviada.",
+        "probability": "media"
+      },
+      {
+        "description": "Dados incorretos do destinatário (chave Pix ou dados bancários), levando a uma falha no processamento ou devolução futura. Embora o Pix seja instantâneo, erros podem causar atrasos ou falhas.",
+        "probability": "media"
+      },
+      {
+        "description": "Problema técnico ou intermitência no sistema Pix do nosso banco no momento da transação, resultando em atraso no processamento.",
+        "probability": "baixa"
+      }
+    ],
+    "evidence": [
+      "Cliente fez um Pix de R$ 350 ontem às 21h.",
+      "O valor saiu da conta do cliente.",
+      "O filho do cliente não recebeu o valor.",
+      "No aplicativo do cliente, o status da transação é 'em processamento'.",
+      "Histórico: cliente já teve problema com limite noturno de Pix (R$ 200) em atendimento anterior."
+    ],
+    "missing_info": [
+      "Comprovante da transação Pix (para verificar ID da transação, dados do destinatário e status detalhado).",
+      "Confirmação do status da transação no extrato do destinatário.",
+      "Informação se o destinatário é cliente do mesmo banco ou de outro.",
+      "Chave Pix utilizada para a transação."
+    ],
+    "likely_conclusion": "A hipótese mais provável é que o Pix esteja retido para análise de segurança, dado o status 'em processamento' e o valor da transação. É necessário verificar o comprovante para confirmar o ID da transação e os dados do destinatário."
+  },
+  "usage": null,
+  "evaluation": null
+}

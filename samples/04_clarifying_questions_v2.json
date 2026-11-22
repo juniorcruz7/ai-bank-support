@@ -1,0 +1,52 @@
+{
+  "run_id": "e45207ce-3a89-492e-a0b0-9c2b1f355d1f",
+  "timestamp": "2026-11-22T14:52:56.794030-03:00",
+  "customer_id": "C001",
+  "ticket": {
+    "id": "T001",
+    "title": "Pix não chegou",
+    "text": "Fiz um Pix de R$ 350 pro meu filho ontem às 21h, saiu da conta mas ele não recebeu. No app aparece 'em processamento'."
+  },
+  "content_type": "clarifying_questions",
+  "prompt_version": "v2",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [
+    "T005"
+  ],
+  "template_hash": "88f8bae24b73023b9e582bd27480c30359045ca838b284b5d6fd2f9664be3000",
+  "cache_key": "6fb16d9a44cf87ed20b63512b3ab6526bf73252a32f6c233371ec368e5fb406d",
+  "cache_hit": false,
+  "output": {
+    "questions": [
+      {
+        "question": "Para eu entender melhor, você poderia me dizer qual foi a data e a hora exata em que você fez esse Pix? Essa informação me ajuda a verificar o que pode ter acontecido.",
+        "why_it_matters": "Confirma a data e hora exatas da transação para verificar se a transação está dentro do prazo de processamento ou se há algum atraso específico.",
+        "priority": 1
+      },
+      {
+        "question": "Você se lembra qual chave Pix (como CPF, número de celular ou e-mail) você usou para enviar o dinheiro para o seu filho? É importante para eu checar se a chave está correta.",
+        "why_it_matters": "Verifica se a chave Pix utilizada está correta, descartando a hipótese de erro na digitação da chave ou envio para uma chave incorreta.",
+        "priority": 2
+      },
+      {
+        "question": "Você consegue me dizer qual é o status que aparece no seu aplicativo para essa transação? Por exemplo, se aparece 'concluído', 'pendente' ou 'falhou'.",
+        "why_it_matters": "Confirma o status atual da transação no aplicativo do cliente, o que pode indicar se a transação ainda está em processamento, foi rejeitada ou se houve algum erro no registro do status.",
+        "priority": 3
+      }
+    ]
+  },
+  "usage": {
+    "input_tokens": 832,
+    "output_tokens": 324,
+    "latency_ms": 2202,
+    "llm_calls": 1,
+    "http_attempts": 1
+  },
+  "evaluation": null
+}

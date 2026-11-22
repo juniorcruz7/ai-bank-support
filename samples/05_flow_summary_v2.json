@@ -1,0 +1,88 @@
+{
+  "run_id": "9a7a2365-27ce-4eac-94b2-800c9129efea",
+  "timestamp": "2026-11-22T14:52:58.597446-03:00",
+  "customer_id": "C001",
+  "ticket": {
+    "id": "T001",
+    "title": "Pix não chegou",
+    "text": "Fiz um Pix de R$ 350 pro meu filho ontem às 21h, saiu da conta mas ele não recebeu. No app aparece 'em processamento'."
+  },
+  "content_type": "flow_summary",
+  "prompt_version": "v2",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [
+    "T005"
+  ],
+  "template_hash": "cdb57dfa62527f589e846686f548059d96e3bd1fda035bce17b0c4231fb41be9",
+  "cache_key": "691ad6efac2658e86e1a76b0c9922a1ba1ee13ccc151a63c567b29c84564041c",
+  "cache_hit": false,
+  "output": {
+    "decision_tree": {
+      "nodes": [
+        {
+          "id": "n1",
+          "type": "decision",
+          "text": "O Pix foi feito para a chave correta?",
+          "yes": "n2",
+          "no": "n3"
+        },
+        {
+          "id": "n2",
+          "type": "decision",
+          "text": "O status da transação é 'em processamento'?",
+          "yes": "n4",
+          "no": "n5"
+        },
+        {
+          "id": "n3",
+          "type": "action",
+          "text": "Orientar o cliente a verificar o comprovante e a chave Pix",
+          "yes": null,
+          "no": null
+        },
+        {
+          "id": "n4",
+          "type": "action",
+          "text": "Informar que o Pix pode levar até 1 hora para ser processado",
+          "yes": null,
+          "no": null
+        },
+        {
+          "id": "n5",
+          "type": "decision",
+          "text": "O Pix foi estornado para a conta de origem?",
+          "yes": "n6",
+          "no": "n7"
+        },
+        {
+          "id": "n6",
+          "type": "action",
+          "text": "Informar que o valor foi estornado e está disponível na conta",
+          "yes": null,
+          "no": null
+        },
+        {
+          "id": "n7",
+          "type": "action",
+          "text": "Escalar para a equipe de suporte técnico para análise interna",
+          "yes": null,
+          "no": null
+        }
+      ]
+    }
+  },
+  "usage": {
+    "input_tokens": 965,
+    "output_tokens": 260,
+    "latency_ms": 1796,
+    "llm_calls": 1,
+    "http_attempts": 1
+  },
+  "evaluation": null
+}
