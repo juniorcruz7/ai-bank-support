@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app.storage import DataError, get_profile, load_profiles, load_tickets
+from app.storage import TICKETS_PATH, DataError, add_ticket, get_profile, load_profiles, load_tickets
 
 PROFILE = {
     "id": "C001",
@@ -117,3 +117,49 @@ def test_empty_ticket_message(tmp_path):
     path = _write(tmp_path, "tickets.json", [{**_ticket(), "description": "  "}])
     with pytest.raises(DataError, match="Ticket 'T001'.*descrição vazio"):
         load_tickets(profiles, path)
+
+
+# --- novo ticket (RF17) ----------------------------------------------------
+
+
+def _real_data_copy(tmp_path):
+    profiles = load_profiles()
+    path = tmp_path / "tickets.json"
+    path.write_text(TICKETS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    return profiles, path
+
+
+def test_add_ticket_appends_with_next_id(tmp_path):
+    profiles, path = _real_data_copy(tmp_path)
+    before = load_tickets(profiles, path)
+
+    ticket = add_ticket(profiles, "C002", "Boleto não compensou", "Paguei um boleto anteontem e não compensou.", path)
+
+    after = load_tickets(profiles, path)
+    assert ticket.id == "T007"
+    assert ticket.status == "aberto" and ticket.resolution is None
+    assert ticket.created_at.utcoffset().total_seconds() == -3 * 3600
+    assert [t.id for t in after] == [*(t.id for t in before), "T007"]
+    assert after[:-1] == before  # nada existente foi alterado
+
+
+def test_next_id_uses_highest_number(tmp_path):
+    profiles = load_profiles(_write(tmp_path, "profiles.json", _profiles(3)))
+    path = _write(tmp_path, "tickets.json", [_ticket("T001"), _ticket("T010")])
+    assert add_ticket(profiles, "C001", "Título", "Descrição longa o bastante", path).id == "T011"
+
+
+def test_add_ticket_unknown_customer_writes_nothing(tmp_path):
+    profiles, path = _real_data_copy(tmp_path)
+    original = path.read_text(encoding="utf-8")
+    with pytest.raises(DataError, match="Perfil 'C999' não existe"):
+        add_ticket(profiles, "C999", "Título", "Descrição longa o bastante", path)
+    assert path.read_text(encoding="utf-8") == original
+
+
+def test_add_ticket_invalid_text_writes_nothing(tmp_path):
+    profiles, path = _real_data_copy(tmp_path)
+    original = path.read_text(encoding="utf-8")
+    with pytest.raises(DataError, match="Ticket inválido: description: descrição com 5 caracteres"):
+        add_ticket(profiles, "C001", "Título", "curto", path)
+    assert path.read_text(encoding="utf-8") == original

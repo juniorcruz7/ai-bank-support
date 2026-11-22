@@ -4,11 +4,13 @@ import json
 import os
 import tempfile
 from contextlib import suppress
+from datetime import datetime
 from pathlib import Path
 from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
+from app.config import APP_TIMEZONE
 from app.models import Profile, Run, Ticket
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -126,6 +128,42 @@ def load_tickets(profiles: dict[str, Profile], path: Path = TICKETS_PATH) -> lis
                 f"Ticket {ticket.id!r} aponta para cliente inexistente: {ticket.customer_id!r}."
             )
     return tickets
+
+
+def next_ticket_id(tickets: list[Ticket]) -> str:
+    """Próximo ID sequencial (T007, T008…), a partir do maior número existente."""
+    highest = max((int(t.id[1:]) for t in tickets), default=0)
+    return f"T{highest + 1:03d}"
+
+
+def add_ticket(
+    profiles: dict[str, Profile],
+    customer_id: str,
+    title: str,
+    description: str,
+    path: Path = TICKETS_PATH,
+    now: datetime | None = None,
+) -> Ticket:
+    """Anexa um ticket aberto ao tickets.json (RF17); nada é gravado se algo for inválido."""
+    get_profile(profiles, customer_id)  # cliente inexistente -> DataError, sem ticket órfão
+    tickets = load_tickets(profiles, path)
+    created_at = (now or datetime.now(APP_TIMEZONE)).replace(microsecond=0)
+    data = {
+        "id": next_ticket_id(tickets),
+        "customer_id": customer_id,
+        "created_at": created_at,
+        "title": title,
+        "description": description,
+        "status": "aberto",
+        "resolution": None,
+    }
+    try:
+        ticket = Ticket.model_validate(data)
+    except ValidationError as exc:
+        details = "; ".join(_describe_error(e) for e in exc.errors())
+        raise DataError(f"Ticket inválido: {details}") from None
+    write_json_atomic(path, [t.model_dump(mode="json") for t in [*tickets, ticket]])
+    return ticket
 
 
 def get_profile(profiles: dict[str, Profile], profile_id: str) -> Profile:

@@ -30,3 +30,38 @@ class FakeClient:
         if not self._texts:
             raise AssertionError("FakeClient chamado mais vezes do que o esperado")
         return LLMResponse(text=self._texts.pop(0), input_tokens=100, output_tokens=50, latency_ms=7, attempts=1)
+
+VALID_STEPS = json.dumps(
+    {
+        "steps": [
+            {"order": 2, "action": "Abra o extrato", "expected_result": "Vê o Pix", "if_fails": "Me avise"},
+            {"order": 1, "action": "Abra o app", "expected_result": "Tela inicial", "if_fails": "Reinicie o celular"},
+        ],
+        "escalation_note": "Escalar para a equipe de Pix se o status não mudar.",
+    }
+)
+VALID_QUESTIONS = json.dumps(
+    {
+        "questions": [
+            {"question": "O seu filho olhou o extrato?", "why_it_matters": "Descarta atraso de notificação", "priority": 2},
+            {"question": "Qual chave Pix você usou?", "why_it_matters": "Confirma o destinatário", "priority": 1},
+        ]
+    }
+)
+VALID_FLOW = json.dumps(
+    {
+        "decision_tree": {
+            "nodes": [
+                {"id": "n1", "type": "decision", "text": "Pix concluído?", "yes": "n2", "no": "n3"},
+                {"id": "n2", "type": "action", "text": "Pedir comprovante"},
+                {"id": "n3", "type": "action", "text": "Escalar para equipe de Pix"},
+            ]
+        }
+    }
+)
+VALID_BY_TYPE = {
+    "diagnosis": VALID_DIAGNOSIS,
+    "resolution_steps": VALID_STEPS,
+    "clarifying_questions": VALID_QUESTIONS,
+    "flow_summary": VALID_FLOW,
+}

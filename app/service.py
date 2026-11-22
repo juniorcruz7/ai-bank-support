@@ -5,11 +5,11 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from zoneinfo import ZoneInfo
 
 from pydantic import BaseModel, ValidationError
 
 from app.cache import compute_cache_key, find_cached_run
+from app.config import APP_TIMEZONE
 from app.generators import OUTPUT_MODELS, generate
 from app.llm_client import LLMClient
 from app.models import Profile, Run, RunTicket, RunUsage, Ticket
@@ -17,9 +17,6 @@ from app.prompt_builder import PROMPTS_DIR, build_prompt, get_customer_history
 from app.storage import RUNS_DIR, save_run
 
 logger = logging.getLogger(__name__)
-
-TIMEZONE = ZoneInfo("America/Recife")
-
 
 @dataclass(frozen=True)
 class RunResult:
@@ -77,7 +74,7 @@ def run_content(
 
     run = Run(
         run_id=str(uuid.uuid4()),
-        timestamp=datetime.now(TIMEZONE),
+        timestamp=datetime.now(APP_TIMEZONE),
         customer_id=profile.id,
         ticket=RunTicket(id=ticket.id, title=ticket.title, text=ticket.description),
         content_type=content_type,

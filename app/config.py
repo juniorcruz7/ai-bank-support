@@ -2,12 +2,14 @@
 
 import os
 from dataclasses import dataclass
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
 DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
 DEFAULT_TEMPERATURE = 0.2
 DEFAULT_MAX_TOKENS = 2048
+APP_TIMEZONE = ZoneInfo("America/Recife")  # exige o pacote tzdata no Windows
 
 
 class ConfigError(Exception):

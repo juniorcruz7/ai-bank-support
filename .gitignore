@@ -10,3 +10,6 @@ runs/
 # Python
 __pycache__/
 *.pyc
+
+# Logs da aplicação
+logs/
