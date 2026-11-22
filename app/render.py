@@ -1,8 +1,11 @@
 """Formata as saídas validadas para leitura no terminal (inclui o fluxograma em ASCII)."""
 
+import textwrap
+from itertools import zip_longest
+
 from pydantic import BaseModel
 
-from app.models import ROOT_NODE_ID, ClarifyingQuestions, DecisionTree, Diagnosis, FlowNode, FlowSummary, ResolutionSteps
+from app.models import RUBRIC_CRITERIA, ROOT_NODE_ID, ClarifyingQuestions, DecisionTree, Diagnosis, Evaluation, FlowNode, FlowSummary, ResolutionSteps
 
 CONTENT_LABELS = {
     "diagnosis": "Diagnóstico",
@@ -89,3 +92,48 @@ _RENDERERS = {
 
 def render_output(content_type: str, output: BaseModel) -> str:
     return _RENDERERS[content_type](output)
+
+
+# --- Comparação --------------------------------------------------------------
+
+MIN_COLUMN_WIDTH = 40
+COLUMN_GAP = " | "
+
+
+def _wrap_keeping_indent(text: str, width: int) -> list[str]:
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if not stripped:
+            lines.append("")
+            continue
+        indent = " " * min(len(line) - len(stripped), width // 2)
+        lines += textwrap.wrap(stripped, width=width, initial_indent=indent, subsequent_indent=indent + "  ")
+    return lines
+
+
+def render_side_by_side(columns: list[tuple[str, str]], total_width: int) -> str:
+    """Uma coluna por versão; se não couber (coluna < 40), empilha as saídas."""
+    gaps = len(COLUMN_GAP) * (len(columns) - 1)
+    width = (total_width - gaps) // len(columns)
+    if width < MIN_COLUMN_WIDTH:
+        return "\n\n".join(f"--- {title} ---\n{text}" for title, text in columns)
+
+    wrapped = [_wrap_keeping_indent(text, width) for _, text in columns]
+    rows = [COLUMN_GAP.join(title.ljust(width) for title, _ in columns).rstrip()]
+    rows.append(COLUMN_GAP.join("-" * width for _ in columns))
+    for cells in zip_longest(*wrapped, fillvalue=""):
+        rows.append(COLUMN_GAP.join(cell.ljust(width) for cell in cells).rstrip())
+    return "\n".join(rows)
+
+
+def render_scores_table(evaluations: dict[str, Evaluation]) -> str:
+    versions = list(evaluations)
+    label_width = max(len(label) for label in RUBRIC_CRITERIA.values())
+    header = "Critério".ljust(label_width) + "".join(f"{v:>6}" for v in versions)
+    lines = [header, "-" * len(header)]
+    for key, label in RUBRIC_CRITERIA.items():
+        lines.append(label.ljust(label_width) + "".join(f"{getattr(evaluations[v], key).score:>6}" for v in versions))
+    lines.append("-" * len(header))
+    lines.append("Total".ljust(label_width) + "".join(f"{evaluations[v].total:>6}" for v in versions))
+    return "\n".join(lines)

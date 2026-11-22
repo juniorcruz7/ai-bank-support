@@ -192,6 +192,13 @@ def save_run(run: Run, runs_dir: Path = RUNS_DIR) -> Path:
     return path
 
 
+def update_run(path: Path, run: Run) -> None:
+    """Regrava uma execução existente (ex.: para anexar a avaliação) de forma atômica."""
+    if not path.exists():
+        raise DataError(f"Execução não encontrada: {path}")
+    write_json_atomic(path, run.model_dump(mode="json"))
+
+
 def run_files_with_key(customer_id: str, ticket_id: str, cache_key: str, runs_dir: Path = RUNS_DIR) -> list[Path]:
     """Arquivos cujo nome bate com o prefixo da chave, do mais novo ao mais antigo."""
     folder = run_folder(customer_id, ticket_id, runs_dir)

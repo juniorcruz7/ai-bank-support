@@ -26,10 +26,16 @@ def env(tmp_path, monkeypatch):
     class Env:
         root = tmp_path
         client = FakeClient()
+        client_kwargs: dict = {}
 
         def responses(self, *texts):
             self.client = FakeClient(*texts)
-            monkeypatch.setattr(main, "make_client", lambda: self.client)
+
+            def make_client(**kwargs):
+                self.client_kwargs = kwargs
+                return self.client
+
+            monkeypatch.setattr(main, "make_client", make_client)
 
         def answers(self, *values):
             monkeypatch.setattr(main, "is_interactive", lambda: True)
@@ -147,3 +153,84 @@ def test_interactive_rejects_invalid_option(env, capsys):
     env.responses(VALID_DIAGNOSIS)
     assert main.main(["generate"]) == 0
     assert "Opção inválida" in capsys.readouterr().out
+
+
+# --- compare (RF11, RF12) --------------------------------------------------
+
+CRITERIA = ("clarity", "customer_fit", "actionability")
+COMPARE_HEADER = "=== Comparação · Diagnóstico · T001 · Maria ==="
+
+
+def _rubric_file(root, v1=(2, 1, 2), v2=(4, 5, 4)):
+    data = {
+        version: {key: {"score": score, "justification": f"{version} {key}"} for key, score in zip(CRITERIA, scores)}
+        for version, scores in (("v1", v1), ("v2", v2))
+    }
+    path = root / "rubrica.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path
+
+
+def _compare(*extra):
+    return main.main(["compare", "--customer", "C001", "--ticket", "T001", "--type", "diagnosis", *extra])
+
+
+def _saved_runs(root):
+    return [json.loads(p.read_text(encoding="utf-8")) for p in (root / "runs" / "C001" / "T001").glob("*.json")]
+
+
+def test_compare_with_rubric_file(env, capsys, monkeypatch):
+    monkeypatch.setenv("COLUMNS", "120")
+    env.responses(VALID_DIAGNOSIS, VALID_DIAGNOSIS)
+    assert _compare("--rubric", str(_rubric_file(env.root))) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    header_index = lines.index(COMPARE_HEADER)
+    assert " | v2" in lines[header_index + 2]  # colunas lado a lado
+    assert lines[-3].split() == ["Total", "5", "13"]
+    assert env.client_kwargs == {"temperature": 0.2}  # RNF06
+
+    runs = _saved_runs(env.root)
+    assert sorted(r["prompt_version"] for r in runs) == ["v1", "v2"]
+    assert len({r["evaluation"]["comparison_id"] for r in runs}) == 1
+    v2 = next(r for r in runs if r["prompt_version"] == "v2")
+    assert v2["evaluation"]["customer_fit"] == {"score": 5, "justification": "v2 customer_fit"}
+
+
+def test_compare_interactive_rubric_reasks_invalid_input(env, capsys, monkeypatch):
+    monkeypatch.setenv("COLUMNS", "60")  # terminal estreito: saídas empilhadas
+    answers = ["7", "3", "", "clara"]  # nota inválida, nota ok, justificativa vazia, justificativa ok
+    answers += ["3", "ok"] * 2 + ["4", "boa"] * 3
+    env.answers(*answers)
+    env.responses(VALID_DIAGNOSIS, VALID_DIAGNOSIS)
+    assert _compare() == 0
+
+    out = capsys.readouterr().out
+    assert "--- v1 ---" in out and "--- v2 ---" in out
+    assert "Nota inválida" in out and "não pode ficar vazia" in out
+    v1 = next(r for r in _saved_runs(env.root) if r["prompt_version"] == "v1")
+    assert v1["evaluation"]["clarity"] == {"score": 3, "justification": "clara"}
+
+
+def test_compare_without_rubric_fails_before_calling_api(env, capsys):
+    env.responses()
+    assert _compare() == 1
+    assert "Informe --rubric" in capsys.readouterr().err
+    assert env.client.calls == []
+    assert not (env.root / "runs").exists()
+
+
+@pytest.mark.parametrize(
+    "extra, message",
+    [(["--versions", "v2"], "pelo menos 2 versões"), (["--versions", "v2", "v2"], "Versões repetidas")],
+)
+def test_compare_invalid_versions(env, capsys, extra, message):
+    assert _compare(*extra) == 1
+    assert message in capsys.readouterr().err
+
+
+def test_compare_invalid_rubric_file_fails_before_calling_api(env, capsys):
+    env.responses()
+    assert _compare("--rubric", str(_rubric_file(env.root, v1=(2, 1, 9)))) == 1
+    assert "Nota inválida em v1.actionability" in capsys.readouterr().err
+    assert env.client.calls == []

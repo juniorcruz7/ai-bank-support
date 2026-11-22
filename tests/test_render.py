@@ -1,9 +1,10 @@
 """Testes da formatação no terminal e do fluxograma ASCII (RF07, RF13)."""
 
 import json
+from datetime import datetime, timezone
 
-from app.models import ClarifyingQuestions, Diagnosis, FlowSummary, ResolutionSteps
-from app.render import render_decision_tree, render_output
+from app.models import ClarifyingQuestions, Diagnosis, Evaluation, FlowSummary, ResolutionSteps, Score
+from app.render import render_decision_tree, render_output, render_scores_table, render_side_by_side
 from tests.fakes import VALID_DIAGNOSIS, VALID_QUESTIONS, VALID_STEPS
 
 
@@ -76,3 +77,40 @@ def test_questions_render_sorted_by_priority():
     text = render_output("clarifying_questions", ClarifyingQuestions.model_validate_json(VALID_QUESTIONS))
     assert text.splitlines()[0] == "[P1] Qual chave Pix você usou?"
     assert json.loads(VALID_QUESTIONS)  # sanidade do fixture
+
+
+# --- comparação --------------------------------------------------------------
+
+
+def test_side_by_side_columns():
+    text = render_side_by_side([("v1", "linha curta"), ("v2", "outra\nsegunda")], total_width=100)
+    lines = text.splitlines()
+    assert lines[0].startswith("v1") and " | v2" in lines[0]
+    assert lines[2].startswith("linha curta") and lines[2].endswith("| outra")
+    assert lines[3].strip() == "| segunda"
+    assert all(len(line) <= 100 for line in lines)
+
+
+def test_side_by_side_wraps_long_lines_inside_column():
+    text = render_side_by_side([("v1", "palavra " * 30), ("v2", "x")], total_width=100)
+    body = text.splitlines()[2:]
+    assert len(body) > 1  # quebrou em várias linhas
+    # coluna de 48 = (100 - 3) // 2; o separador fica sempre na mesma posição
+    assert all(line[48:].startswith(" |") for line in body)
+
+
+def test_narrow_terminal_stacks_outputs():
+    assert render_side_by_side([("v1", "a"), ("v2", "b")], total_width=60) == "--- v1 ---\na\n\n--- v2 ---\nb"
+
+
+def _evaluation(*values):
+    keys = ("clarity", "customer_fit", "actionability")
+    scores = {k: Score(score=v, justification="ok") for k, v in zip(keys, values)}
+    return Evaluation(comparison_id="c", evaluated_at=datetime.now(timezone.utc), **scores)
+
+
+def test_scores_table():
+    lines = render_scores_table({"v1": _evaluation(2, 1, 2), "v2": _evaluation(4, 5, 4)}).splitlines()
+    assert lines[0].split() == ["Critério", "v1", "v2"]
+    assert lines[3].split()[-2:] == ["1", "5"]  # Adequação ao cliente
+    assert lines[-1].split() == ["Total", "5", "13"]

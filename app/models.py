@@ -228,6 +228,43 @@ class FlowSummary(BaseModel):
     decision_tree: DecisionTree
 
 
+# --- Rubrica da comparação (RF12) ------------------------------------------
+
+RUBRIC_CRITERIA = {
+    "clarity": "Clareza",
+    "customer_fit": "Adequação ao cliente",
+    "actionability": "Acionabilidade",
+}
+
+
+class Score(BaseModel):
+    score: int
+    justification: str
+
+    _check_justification = field_validator("justification")(_non_empty)
+
+    @field_validator("score")
+    @classmethod
+    def _score_range(cls, value: int) -> int:
+        if not 1 <= value <= 5:
+            raise ValueError("a nota deve ser um inteiro de 1 a 5")
+        return value
+
+
+class Evaluation(BaseModel):
+    """Notas de uma versão numa comparação; o comparison_id liga as execuções comparadas."""
+
+    comparison_id: str
+    clarity: Score
+    customer_fit: Score
+    actionability: Score
+    evaluated_at: AwareDatetime
+
+    @property
+    def total(self) -> int:
+        return sum(getattr(self, key).score for key in RUBRIC_CRITERIA)
+
+
 # --- Registro de execução (runs/) -------------------------------------------
 
 ContentType = Literal["diagnosis", "resolution_steps", "clarifying_questions", "flow_summary"]
@@ -267,4 +304,4 @@ class Run(BaseModel):
     cache_hit: bool
     output: dict[str, Any]
     usage: RunUsage | None = None
-    evaluation: dict[str, Any] | None = None  # preenchido na comparação (fase 7)
+    evaluation: Evaluation | None = None  # preenchido pelo modo comparação
