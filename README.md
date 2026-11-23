@@ -76,6 +76,16 @@ Há dois tipos de conta: **atendente**, que vê e faz tudo, e **cliente**, que s
 | Fechar ticket, comparar versões e dar notas | Não | Sim |
 | Escolher a versão do prompt | Não (usa a `v2`) | Sim |
 
+**Por que o atendente abre ticket em nome do cliente.** Nem todo problema chega pelo app. O atendente registra no sistema o que chega por outros canais, para que o caso entre no mesmo fluxo:
+
+- **Telefone e e-mail.** O cliente conta o problema e o atendente abre o ticket com o relato dele, por isso o campo se chama "Descrição (como o cliente escreveu)". É o caso da Maria (C001), leiga e atendida por telefone: o passo a passo da `v2` sai em frases curtas para ser lido em voz alta.
+- **Cliente sem acesso ao app.** Problemas de acesso impedem o cliente de abrir o ticket sozinho, como no T003: a Ana trocou de celular e o SMS de validação não chega.
+- **Problema detectado pelo banco**, registrado antes de o cliente reclamar.
+
+Registrar, em vez de só responder na hora, garante três coisas: o caso e a resolução entram no histórico usado como contexto nos próximos pedidos do cliente; diagnóstico e fluxograma, que só funcionam sobre um ticket, ficam disponíveis ao atendente; e fica o rastro de quando o problema chegou e como foi resolvido. O ticket aberto pelo atendente é igual a um aberto pelo cliente, que o vê na própria conta com o próximo número (nº 1, nº 2…).
+
+**Quem marca um ticket como resolvido.** Só o atendente, com o texto da resolução (web: página Tickets; CLI: `ticket close`). Receber o passo a passo não fecha o ticket, e o cliente não confirma nem reabre: se o problema voltar, abre-se um ticket novo, e o anterior entra como histórico.
+
 Contas de demonstração em `data/users.json`. As senhas são fictícias e só existem para a demonstração; o arquivo guarda apenas o hash PBKDF2-SHA256 com salt.
 
 | Usuário | Senha | Conta |
@@ -162,7 +172,7 @@ Abre no navegador (padrão `http://localhost:8501`) uma interface sobre o mesmo 
 - **Histórico do cliente**: tickets e execuções gravadas, com o JSON de cada uma.
 - **Tickets**: abrir um ticket novo e fechar um ticket aberto com a resolução.
 
-A interface abre numa tela de login (mesmas contas da CLI). O atendente vê as 4 páginas; o cliente vê só Gerar conteúdo (passo a passo e perguntas, versão padrão), o próprio histórico e a abertura de tickets. A chave continua vindo do `.env`.
+A interface abre numa tela de login (mesmas contas da CLI), com uma aba que lista as contas de demonstração. O atendente vê as 4 páginas acima. O cliente vê uma interface própria, sem escolher cliente nem versão: **Ajuda com um ticket** (passo a passo e perguntas), **Meu histórico** (os próprios tickets e as respostas já recebidas, sem dados técnicos) e **Abrir ticket**. Para o cliente, os tickets aparecem numerados na conta dele (nº 1, nº 2…, por ordem de abertura); o ID interno continua global e sequencial (T007, T008…), como pede o RF17. A chave continua vindo do `.env`.
 
 ## Arquitetura
 
@@ -241,6 +251,8 @@ ruff format --check .
 ## Limitações
 
 - O login é um controle de acesso de demonstração: contas num JSON, sem recuperação de senha, sem bloqueio por tentativas e sem HTTPS próprio. Num produto real, a identidade viria de um provedor de autenticação.
+- O ticket não registra quem o abriu nem por qual canal: um ticket aberto pelo atendente em nome do cliente é igual a um aberto pelo próprio cliente. Foi uma escolha para manter o modelo de dados simples; num produto real, esse registro seria necessário para auditoria.
+- O cliente não confirma a solução nem reabre um ticket: o fechamento é decisão do atendente.
 - A avaliação da rubrica é manual e feita sobre poucos cenários.
 - Mais detalhes e próximos passos em [PROMPT_ENGINEERING_NOTES.md](PROMPT_ENGINEERING_NOTES.md#limitações-e-próximos-passos).
 
