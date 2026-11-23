@@ -121,10 +121,25 @@ python main.py history --customer C001
 
 Lista os tickets do cliente (mais recentes primeiro, com a resolução quando houver) e as execuções gravadas em `runs/` para cada ticket: data, tipo, versão, se veio do cache, nota da rubrica e caminho do JSON.
 
+### Interface web (Streamlit)
+
+```bash
+streamlit run streamlit_app.py
+```
+
+Abre no navegador (padrão `http://localhost:8501`) uma interface sobre o mesmo núcleo da CLI, com as mesmas regras de cache, histórico e validação:
+
+- **Gerar conteúdo**: cliente, ticket, um ou mais tipos e versão do prompt; mostra o histórico usado como contexto, a saída, o caminho do JSON, a latência e os tokens.
+- **Comparar versões**: saídas lado a lado e formulário da rubrica (nota de 1 a 5 e justificativa por critério), gravada nas execuções como no `compare`.
+- **Histórico do cliente**: tickets e execuções gravadas, com o JSON de cada uma.
+- **Tickets**: abrir um ticket novo e fechar um ticket aberto com a resolução.
+
+A chave continua vindo do `.env`. Sem login: a interface é a ferramenta do atendente, como a CLI.
+
 ## Arquitetura
 
 ```text
-CLI (main.py)
+CLI (main.py) / interface web (streamlit_app.py)
   └─> service.run_content
         ├─> prompt_builder: templates de prompts/<versão>/ + perfil + ticket + histórico do cliente
         ├─> cache: chave SHA-256 → já existe em runs/? ──sim──> reaproveita (cache hit)
@@ -135,6 +150,8 @@ CLI (main.py)
 | Módulo | Responsabilidade |
 | --- | --- |
 | `main.py` | CLI: subcomandos `generate`, `compare`, `ticket add`, `ticket close` e `history`, menus e mensagens de erro |
+| `streamlit_app.py` | Interface web: geração, comparação com rubrica, histórico e tickets |
+| `app/runtime.py` | Cliente LLM e logging compartilhados pela CLI e pela interface |
 | `app/config.py` | Lê o `.env` (chave, modelo, temperatura, `max_tokens`) |
 | `app/models.py` | Modelos Pydantic: perfil, ticket, as 4 saídas, execução e rubrica |
 | `app/prompt_builder.py` | Monta o prompt em camadas a partir dos templates da versão |
@@ -201,5 +218,6 @@ ruff format --check .
 ## Ferramentas utilizadas
 
 - Python 3, Pydantic, python-dotenv e o SDK `google-genai` (modelo `gemini-2.5-flash`).
+- Streamlit para a interface web.
 - pytest para os testes.
 - O Claude (Anthropic) foi usado como auxílio na parte de código.

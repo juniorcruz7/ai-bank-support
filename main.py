@@ -1,7 +1,6 @@
 """CLI do assistente de suporte (ponto de entrada)."""
 
 import argparse
-import dataclasses
 import logging
 import shutil
 import sys
@@ -17,9 +16,9 @@ from app.compare import (
     save_evaluations,
     validate_versions,
 )
-from app.config import ConfigError, load_settings
+from app.config import ConfigError
 from app.generators import OutputValidationError
-from app.llm_client import GeminiClient, LLMAuthError, LLMClient, LLMError
+from app.llm_client import LLMAuthError, LLMError
 from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket
 from app.prompt_builder import CONTENT_TYPES, PROMPTS_DIR, PromptError, list_versions
 from app.render import (
@@ -29,6 +28,7 @@ from app.render import (
     render_scores_table,
     render_side_by_side,
 )
+from app.runtime import make_client, setup_logging
 from app.service import RunResult, run_content
 from app.storage import (
     PROFILES_PATH,
@@ -48,7 +48,6 @@ LOG_DIR = ROOT_DIR / "logs"
 ALL_TYPES = "all"
 DEFAULT_VERSION = "v2"
 NEW_TICKET = "__novo__"
-_HANDLER_TAG = "_ai_bank_support"
 
 
 class CliError(Exception):
@@ -62,15 +61,6 @@ logger = logging.getLogger("main")
 # --- infraestrutura ----------------------------------------------------------
 
 
-def make_client(temperature: float | None = None) -> LLMClient:
-    """Cria o cliente Gemini; `temperature` sobrescreve o .env (usado na comparação)."""
-    settings = load_settings()
-    if temperature is not None and temperature != settings.temperature:
-        logger.warning("Comparação usa temperatura fixa %s (o .env pede %s).", temperature, settings.temperature)
-        settings = dataclasses.replace(settings, temperature=temperature)
-    return GeminiClient.from_settings(settings)
-
-
 def is_interactive() -> bool:
     return sys.stdin.isatty()
 
@@ -82,26 +72,6 @@ def _force_utf8() -> None:
             stream.reconfigure(encoding="utf-8")
         except (AttributeError, ValueError):
             pass
-
-
-def setup_logging(log_dir: Path) -> None:
-    """INFO no terminal (stderr) e em logs/app.log (RNF11)."""
-    root = logging.getLogger()
-    root.setLevel(logging.INFO)
-    for handler in [h for h in root.handlers if getattr(h, _HANDLER_TAG, False)]:
-        root.removeHandler(handler)
-        handler.close()
-
-    console = logging.StreamHandler(sys.stderr)
-    console.setFormatter(logging.Formatter("  [log] %(message)s"))
-    log_dir.mkdir(parents=True, exist_ok=True)
-    logfile = logging.FileHandler(log_dir / "app.log", encoding="utf-8")
-    logfile.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-    for handler in (console, logfile):
-        setattr(handler, _HANDLER_TAG, True)
-        root.addHandler(handler)
-    for noisy in ("httpx", "httpx2", "httpcore", "google_genai", "google"):
-        logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
 def _display_path(path: Path) -> str:
