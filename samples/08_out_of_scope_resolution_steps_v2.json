@@ -1,0 +1,49 @@
+{
+  "run_id": "5e174c56-c4e5-4fa1-b46a-b9cb1ee770b1",
+  "timestamp": "2026-11-23T20:30:28.999560-03:00",
+  "customer_id": "C004",
+  "ticket": {
+    "id": "T007",
+    "title": "Gato",
+    "text": "Meu gato comeu pedra e eu não sei o que fazer."
+  },
+  "content_type": "resolution_steps",
+  "prompt_version": "v2",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [],
+  "template_hash": "e84f38af10002e2e799268aa0c7e3978f21cf477c432d35cf4712b0f3b3eae90",
+  "cache_key": "798b2f41e3c3496bb3528dde219dfc95be2e895f63da335b397a1ccc37aede3c",
+  "cache_hit": false,
+  "output": {
+    "out_of_scope": null,
+    "steps": [
+      {
+        "order": 1,
+        "action": "Verifique se o seu gato está apresentando algum sintoma de desconforto, como vômito, falta de apetite ou letargia.",
+        "expected_result": "Observar se o gato demonstra sinais de mal-estar ou comportamento incomum.",
+        "if_fails": "Se o gato apresentar qualquer um desses sintomas, procure um veterinário imediatamente, pois a ingestão de objetos estranhos pode ser perigosa para a saúde do animal."
+      },
+      {
+        "order": 2,
+        "action": "Observe se o gato consegue se alimentar e beber água normalmente.",
+        "expected_result": "Verificar se o gato está se alimentando e hidratando sem dificuldades.",
+        "if_fails": "Caso o gato não consiga comer ou beber, ou demonstre dor ao tentar, é crucial levá-lo ao veterinário o mais rápido possível para uma avaliação profissional."
+      }
+    ],
+    "escalation_note": "Este caso não se refere a um problema bancário. O cliente deve ser orientado a procurar um médico veterinário para o seu gato. Não há necessidade de escalonamento interno para o banco."
+  },
+  "usage": {
+    "input_tokens": 751,
+    "output_tokens": 237,
+    "latency_ms": 2920,
+    "llm_calls": 1,
+    "http_attempts": 1
+  },
+  "evaluation": null
+}

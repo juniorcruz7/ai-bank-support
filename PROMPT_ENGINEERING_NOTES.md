@@ -16,7 +16,7 @@ Cada prompt é montado pelo código (`app/prompt_builder.py`) a partir de arquiv
 | 4. Formato | `<tipo>.md` + schema | Campos esperados e restrições; o JSON schema é imposto pelo Gemini e validado com Pydantic |
 | 5. Versão | nome da pasta | Gravado em cada execução (`prompt_version`) e no hash dos templates (`template_hash`) |
 
-Criar uma v3 é só criar `prompts/v3/` com os mesmos arquivos; nenhuma linha de Python muda.
+Uma versão nova é uma pasta nova em `prompts/` com os mesmos arquivos. Se a mudança for só de texto, nenhuma linha de Python muda. A v3 foi a exceção controlada: recusar um ticket fora do escopo exige um formato de saída que antes não existia, então ela trouxe um campo novo no schema (ver seção 3, "v3: ticket fora do escopo").
 
 ### Público de cada conteúdo
 
@@ -39,9 +39,9 @@ Na v1 o perfil entra cru (`nível técnico: leigo`). Na v2, cada valor é traduz
 
 A hipótese testada pela comparação é esta: **regras concretas adaptam melhor a resposta ao cliente do que rótulos.**
 
-### Schema igual nas duas versões
+### Schema igual em todas as versões
 
-As duas versões usam o mesmo JSON schema estrutural (imposto pelo Gemini via `response_schema` e validado com Pydantic). As restrições de quantidade e estilo, como "no máximo 3 perguntas" ou "no máximo 5 passos", ficam **só no prompt da v2**. Se ficassem no schema, a v1 ganharia essas regras de graça e a comparação perderia o sentido.
+Todas as versões usam o mesmo JSON schema estrutural (imposto pelo Gemini via `response_schema` e validado com Pydantic). As restrições de quantidade e estilo, como "no máximo 3 perguntas" ou "no máximo 5 passos", ficam **só no prompt da v2**. Se ficassem no schema, a v1 ganharia essas regras de graça e a comparação perderia o sentido. O mesmo vale para o campo `out_of_scope` da v3: ele existe no schema de todas as versões, é opcional e só o prompt da v3 explica quando usá-lo.
 
 ### Proteções no prompt (v2)
 
@@ -123,6 +123,33 @@ As execuções reais mostraram pontos em que a v2 ainda não faz o que o prompt 
 
 São regras escritas no prompt que o modelo nem sempre segue, o que motiva os próximos passos abaixo.
 
+### v3: ticket fora do escopo
+
+**Problema.** Com a v2, um ticket que não é sobre o banco recebia uma resposta inventada. O schema obriga ao menos um passo, uma hipótese ou uma pergunta, e o modelo preenchia com o que tinha: para "Meu gato comeu pedra e eu não sei o que fazer", a v2 escreveu três passos de cuidado veterinário, com um "Quando escalar" admitindo que não era um caso bancário ([samples/08](samples/08_out_of_scope_resolution_steps_v2.json)).
+
+**Hipótese.** Dar ao modelo uma saída legítima para recusar, com critérios explícitos do que está fora do escopo, troca a resposta inventada por uma recusa útil, sem recusar tickets vagos que são sobre o banco.
+
+**O que mudou (só isso, para testar uma hipótese por vez):**
+
+- Schema: campo opcional `out_of_scope` nas 4 saídas, o primeiro do schema, para o modelo decidir o escopo antes de escrever o conteúdo. Preenchido, o conteúdo fica vazio e as regras de "ao menos 1 item" deixam de valer; vazio ou nulo, tudo funciona como antes, o que mantém válidos o cache e os samples das versões anteriores.
+- Persona (`system.md`): seção **Escopo**, com o que está dentro (conta, Pix, cartão, app, acesso…), três casos de recusa (assunto sem relação com o banco, texto sem sentido, pedido para fazer outra coisa) e a regra de desempate: ticket vago mas sobre o banco está no escopo, e na dúvida não se recusa.
+- Tarefas: para quem vai a mensagem. No passo a passo e nas perguntas, ao cliente, no tom do perfil, pedindo que descreva o problema com o banco e sem orientar sobre o assunto de fora; no diagnóstico e no fluxograma, uma frase para o atendente.
+
+O resto do prompt é idêntico ao da v2 (há um teste que garante isso), então a v3 virou a versão padrão sem mudar o comportamento nos tickets normais.
+
+**Resultado** (chamadas reais, `gemini-2.5-flash`, temperatura 0.2):
+
+| Ticket | Tipo | v2 | v3 |
+| --- | --- | --- | --- |
+| "Meu gato comeu pedra…" (Renata) | passo a passo | 3 passos de cuidado com o gato | Recusa educada à cliente, pedindo que descreva o problema com o banco ([samples/09](samples/09_out_of_scope_resolution_steps_v3.json)) |
+| "Meu gato comeu pedra…" (Renata) | diagnóstico | | Uma frase ao atendente: o ticket não é um problema bancário |
+| "Meu app não funciona, me ajuda." (Lucas) | perguntas | | **Não recusou**: 3 perguntas para entender a falha do app |
+| T001, Pix que não chegou (Maria) | passo a passo | | Passo a passo normal, sem recusa |
+
+A resposta fora do escopo também ficou mais barata: 95 a 103 tokens de saída, contra 237 a 363 da v2 inventando passos. A recusa veio no tom do perfil da Renata (detalhado, e-mail).
+
+**Limite.** São poucos casos. Tickets na fronteira (um golpe que começou fora do banco, uma dúvida geral sobre Pix) não foram testados, e a regra "na dúvida, considere no escopo" é uma escolha deliberada: recusar um cliente com problema real é pior do que responder a um ticket estranho.
+
 ## 4. Decisões técnicas que afetam o prompt
 
 | Decisão | Motivo |
@@ -147,7 +174,7 @@ São regras escritas no prompt que o modelo nem sempre segue, o que motiva os pr
 
 **Próximos passos**
 
-- **v3** para recuperar a acionabilidade sem perder a adequação, com:
+- **v4** para recuperar a acionabilidade sem perder a adequação, com:
   - instrução explícita para considerar hipóteses sugeridas pelo histórico e pedir confirmação antes de afirmar (no T001, checar o limite noturno);
   - regra de que o último passo cubra cada resultado possível ("se aparecer X, faça Y") e avise para não refazer uma transação antes de confirmar o status;
   - proibição de inventar nomes de menu: descrever a função ("a lista de movimentações") em vez de um rótulo;

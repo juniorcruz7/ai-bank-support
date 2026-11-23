@@ -1,0 +1,36 @@
+{
+  "run_id": "91d67734-3350-4dbd-a5c4-e9b84dd7b285",
+  "timestamp": "2026-11-23T20:30:30.510757-03:00",
+  "customer_id": "C004",
+  "ticket": {
+    "id": "T007",
+    "title": "Gato",
+    "text": "Meu gato comeu pedra e eu não sei o que fazer."
+  },
+  "content_type": "resolution_steps",
+  "prompt_version": "v3",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "config": {
+    "temperature": 0.2,
+    "max_tokens": 2048,
+    "thinking_budget": 0
+  },
+  "context_ticket_ids": [],
+  "template_hash": "bc6357e07630415b72eca9cbc6397c2eece8e61a12910e165d1ff44d56c841e2",
+  "cache_key": "0721b291e301ac6cdede1022f9a6f3262a840256c1a9a28896ffb34d91fb12f7",
+  "cache_hit": false,
+  "output": {
+    "out_of_scope": "Olá, Renata. Agradecemos o seu contato. Verificamos que a sua solicitação não parece estar relacionada aos serviços da sua conta ou do nosso banco. Se você estiver enfrentando algum problema com a sua conta ou nossos produtos, por favor, nos envie uma nova mensagem detalhando o ocorrido para que possamos te ajudar da melhor forma possível. Estamos à disposição!",
+    "steps": [],
+    "escalation_note": ""
+  },
+  "usage": {
+    "input_tokens": 1043,
+    "output_tokens": 95,
+    "latency_ms": 1465,
+    "llm_calls": 1,
+    "http_attempts": 1
+  },
+  "evaluation": null
+}

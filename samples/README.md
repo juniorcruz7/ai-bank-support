@@ -11,7 +11,11 @@ Execuções reais copiadas de `runs/` (geradas com `gemini-2.5-flash`, temperatu
 | `05_flow_summary_v2.json` | Árvore de decisão (o desenho ASCII é feito pela CLI) |
 | `06_compare_resolution_steps_v1_rubric.json` | Comparação v1 × v2 do passo a passo: execução da **v1** com a rubrica no campo `evaluation` |
 | `07_compare_resolution_steps_v2_rubric.json` | A mesma comparação: execução da **v2** (veio do cache) com a rubrica; mesmo `comparison_id` da 06 |
+| `08_out_of_scope_resolution_steps_v2.json` | Ticket fora do escopo ("Meu gato comeu pedra e eu não sei o que fazer", cliente C004) na **v2**: o modelo inventa passos de cuidado com o gato |
+| `09_out_of_scope_resolution_steps_v3.json` | O mesmo ticket na **v3**: `out_of_scope` com a mensagem para a cliente e conteúdo vazio |
 | `cache_log.txt` | Trecho do `logs/app.log` com o cache miss e, depois, o cache hit da mesma entrada |
+
+Os samples 08 e 09 usam um ticket temporário (T007 da Renata), criado só para o teste e que não está em `data/tickets.json`.
 
 Resultado da rubrica (notas de 1 a 5; justificativas completas nos arquivos 06 e 07 e no [PROMPT_ENGINEERING_NOTES.md](../PROMPT_ENGINEERING_NOTES.md#3-resultados)):
 

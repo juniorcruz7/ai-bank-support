@@ -11,7 +11,7 @@ O sistema recebe **um perfil de cliente + um ticket** e gera, com prompts versio
 - CLI em Python (mínimo obrigatório)
 - 4 tipos de conteúdo: diagnóstico, passo a passo, perguntas de esclarecimento e fluxograma
 - 5 perfis e 6 tickets de exemplo em JSON
-- Versionamento de prompt (v1, v2), cache e histórico JSON
+- Versionamento de prompt (v1, v2 e v3, a versão padrão), cache e histórico JSON
 - Comparação v1 × v2 com rubrica de 3 critérios, notas e justificativas
 - README, PROMPT_ENGINEERING_NOTES.md, /samples, .env.example
 
@@ -47,6 +47,7 @@ Prioridade **M** = obrigatório pelo desafio, **D** = diferencial.
 | RF16 | Incluir no prompt os tickets anteriores do cliente (até 3, mais recentes, com status e resolução) como contexto. Exceção: um ticket anterior **ainda aberto e com o mesmo texto** do atual fica de fora, porque é a mesma reclamação repetida e não acrescenta informação; assim o prompt fica igual ao do primeiro ticket e a resposta é reaproveitada do cache. Se o anterior já foi resolvido, ele entra, porque a resolução é informação nova | Própria (reforça 4.2 context setting) | D |
 | RF17 | Ticket digitado na CLI é anexado ao `tickets.json` com ID sequencial (T007, T008…), `customer_id`, `created_at` e `status: "aberto"`; nenhum ticket é apagado. Cliente inexistente → erro claro, sem ticket órfão | Própria | D |
 | RF18 | Fechar ticket = atualizar `status` para `resolvido` e gravar `resolution` (ex.: `close T001 --resolution "..."`); a resolução passa a alimentar o contexto dos próximos pedidos do cliente | Própria | D |
+| RF23 | Ticket fora do escopo (assunto sem relação com o banco, texto sem sentido, pedido para fazer outra coisa): a partir da v3, o modelo recusa preenchendo `out_of_scope` em vez de inventar conteúdo; a mensagem vai ao cliente no passo a passo e nas perguntas, e ao atendente no diagnóstico e no fluxograma. Ticket vago mas sobre o banco continua no escopo | Própria | D |
 
 Fluxo básico na CLI: escolher perfil → escolher ticket → escolher tipo (ou "todos") → escolher versão → ver saída + caminho do JSON. O modo comparação roda o mesmo cenário com duas versões e pede as notas da rubrica no final.
 

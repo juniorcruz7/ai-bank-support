@@ -1,6 +1,6 @@
 # ai-bank-support
 
-Assistente de suporte para um banco digital fictício, construído com **engenharia de prompt versionada**. A partir de um **perfil de cliente** e de um **ticket**, o sistema gera quatro conteúdos de suporte com o Gemini, valida cada saída com Pydantic, guarda tudo num histórico JSON com cache e permite comparar versões de prompt (v1 × v2) com uma rubrica.
+Assistente de suporte para um banco digital fictício, construído com **engenharia de prompt versionada**. A partir de um **perfil de cliente** e de um **ticket**, o sistema gera quatro conteúdos de suporte com o Gemini, valida cada saída com Pydantic, guarda tudo num histórico JSON com cache e permite comparar versões de prompt (v1, v2 e v3) com uma rubrica. A partir da v3, um ticket que não é um pedido de suporte do banco (por exemplo, "meu gato comeu pedra") é recusado com uma mensagem ao cliente, em vez de receber uma resposta inventada.
 
 | Conteúdo | Para quem | O que traz |
 | --- | --- | --- |
@@ -76,11 +76,11 @@ Há dois tipos de conta: **atendente**, que vê e faz tudo, e **cliente**, que s
 | Diagnóstico e fluxograma | Não | Sim |
 | Histórico | Só os próprios tickets e respostas (sem diagnóstico, fluxograma nem notas da rubrica) | Todos os clientes e execuções |
 | Fechar ticket, comparar versões e dar notas | Não | Sim |
-| Escolher a versão do prompt | Não (usa a `v2`) | Sim |
+| Escolher a versão do prompt | Não (usa a `v3`) | Sim |
 
 **Por que o atendente abre ticket em nome do cliente.** Nem todo problema chega pelo app. O atendente registra no sistema o que chega por outros canais, para que o caso entre no mesmo fluxo:
 
-- **Telefone e e-mail.** O cliente conta o problema e o atendente abre o ticket com o relato dele, por isso o campo se chama "Descrição (como o cliente escreveu)". É o caso da Maria (C001), leiga e atendida por telefone: o passo a passo da `v2` sai em frases curtas para ser lido em voz alta.
+- **Telefone e e-mail.** O cliente conta o problema e o atendente abre o ticket com o relato dele, por isso o campo se chama "Descrição (como o cliente escreveu)". É o caso da Maria (C001), leiga e atendida por telefone: o passo a passo sai em frases curtas para ser lido em voz alta.
 - **Cliente sem acesso ao app.** Problemas de acesso impedem o cliente de abrir o ticket sozinho, como no T003: a Ana trocou de celular e o SMS de validação não chega.
 - **Problema detectado pelo banco**, registrado antes de o cliente reclamar.
 
@@ -110,7 +110,9 @@ python main.py generate --user maria --ticket T001 --type all       # cliente: s
 ```
 
 - `--type`: `diagnosis`, `resolution_steps`, `clarifying_questions`, `flow_summary` ou `all` (para a conta de cliente, `all` são os 2 tipos permitidos).
-- `--version`: pasta em `prompts/` (padrão `v2`; só atendente).
+- `--version`: pasta em `prompts/` (padrão `v3`; só atendente).
+
+**Ticket fora do escopo (v3).** Se o ticket não for um pedido de suporte do banco que dê para entender (assunto sem relação com o banco, texto sem sentido, pedido para fazer outra coisa), a v3 não inventa um atendimento: a saída traz só o campo `out_of_scope`, e a CLI e a web mostram a mensagem no lugar do conteúdo. No passo a passo e nas perguntas, a mensagem é para o cliente, no tom do perfil, pedindo que ele descreva o problema com o banco; no diagnóstico e no fluxograma, é uma frase para o atendente. Ticket vago mas sobre o banco ("meu app não funciona") continua no escopo e recebe perguntas de esclarecimento. A recusa também vai para o cache. Exemplo real em [samples/09](samples/09_out_of_scope_resolution_steps_v3.json), e a resposta da v2 para o mesmo ticket (conselhos veterinários) em [samples/08](samples/08_out_of_scope_resolution_steps_v2.json).
 
 A saída aparece formatada no terminal, seguida do caminho do JSON salvo. Exemplo real de fluxograma (T001, cliente Maria, v2):
 
@@ -244,7 +246,7 @@ CLI (main.py) / interface web (streamlit_app.py)
 | `app/compare.py` | Comparação entre versões e gravação da rubrica |
 | `app/render.py` | Formatação no terminal, fluxograma ASCII e colunas lado a lado |
 | `app/storage.py` | Leitura e escrita atômica de perfis, tickets e execuções |
-| `prompts/v1`, `prompts/v2` | Templates de cada versão; criar uma v3 é só adicionar uma pasta |
+| `prompts/v1`, `prompts/v2`, `prompts/v3` | Templates de cada versão; a v3 é a v2 mais a regra de ticket fora do escopo. Uma versão nova é só uma pasta nova |
 
 ## Cache e histórico
 
