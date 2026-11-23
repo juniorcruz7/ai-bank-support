@@ -1,4 +1,7 @@
-"""Camada de serviço: monta o prompt, consulta o cache, gera e grava a execução."""
+"""Camada de serviço: monta o prompt, consulta o cache, gera e grava a execução.
+
+Toda função que lê ou altera ticket, execução ou histórico recebe o usuário logado
+e checa a permissão antes de qualquer outra coisa (RNF14)."""
 
 import logging
 import uuid
@@ -8,13 +11,14 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
+from app import auth
 from app.cache import compute_cache_key, find_cached_run
 from app.config import APP_TIMEZONE
 from app.generators import OUTPUT_MODELS, generate
 from app.llm_client import LLMClient
-from app.models import Profile, Run, RunTicket, RunUsage, Ticket
+from app.models import Profile, Run, RunTicket, RunUsage, Ticket, User
 from app.prompt_builder import PROMPTS_DIR, build_prompt, get_customer_history
-from app.storage import RUNS_DIR, save_run
+from app.storage import RUNS_DIR, TICKETS_PATH, add_ticket, close_ticket, list_customer_runs, save_run
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,7 @@ def _cached_output(run: Run | None, content_type: str) -> BaseModel | None:
 
 
 def run_content(
+    user: User,
     profile: Profile,
     ticket: Ticket,
     tickets: list[Ticket],
@@ -47,6 +52,9 @@ def run_content(
     prompts_dir: Path = PROMPTS_DIR,
 ) -> RunResult:
     """Fluxo completo de uma execução; só saída validada é gravada em runs/."""
+    auth.require_customer_access(user, ticket.customer_id)
+    auth.require_content_type(user, content_type)
+    auth.require_version(user, version)
     prompt = build_prompt(profile, ticket, tickets, content_type, version, prompts_dir)
     history = get_customer_history(tickets, ticket)
     cache_key = compute_cache_key(profile, ticket, prompt, history, client.provider, client.model, client.config)
@@ -101,3 +109,48 @@ def run_content(
 def _sum_or_none(values) -> int | None:
     values = list(values)
     return None if any(v is None for v in values) else sum(values)
+
+
+# --- tickets e histórico com checagem de acesso (RF20–RF22) -----------------
+
+
+def visible_profiles(user: User, profiles: dict[str, Profile]) -> dict[str, Profile]:
+    """Atendente vê todos os clientes; cliente vê só o próprio perfil."""
+    return profiles if auth.is_agent(user) else {k: v for k, v in profiles.items() if k == user.customer_id}
+
+
+def visible_tickets(user: User, tickets: list[Ticket]) -> list[Ticket]:
+    return tickets if auth.is_agent(user) else [t for t in tickets if t.customer_id == user.customer_id]
+
+
+def open_ticket(
+    user: User, profiles: dict[str, Profile], customer_id: str, title: str, description: str, path: Path = TICKETS_PATH
+) -> Ticket:
+    """Cliente abre ticket só para si; atendente para qualquer cliente."""
+    auth.require_customer_access(user, customer_id)
+    return add_ticket(profiles, customer_id, title, description, path=path)
+
+
+def resolve_ticket(
+    user: User, profiles: dict[str, Profile], ticket_id: str, resolution: str, path: Path = TICKETS_PATH
+) -> Ticket:
+    """Fechar ticket é só do atendente (RF18, RF21)."""
+    auth.require_agent(user, "fechar ticket")
+    return close_ticket(profiles, ticket_id, resolution, path=path)
+
+
+def customer_history(
+    user: User, customer_id: str, tickets: list[Ticket], runs_dir: Path = RUNS_DIR
+) -> tuple[list[Ticket], list[tuple[Path, Run]]]:
+    """Tickets e execuções de um cliente (RF15, RF22).
+
+    Para a conta de cliente, só as respostas que ele pode receber: sem diagnóstico,
+    fluxograma nem as notas internas da rubrica.
+    """
+    auth.require_customer_access(user, customer_id)
+    own = [t for t in tickets if t.customer_id == customer_id]
+    runs = list_customer_runs(customer_id, runs_dir)
+    if not auth.is_agent(user):
+        allowed = auth.allowed_content_types(user)
+        runs = [(p, r.model_copy(update={"evaluation": None})) for p, r in runs if r.content_type in allowed]
+    return own, runs

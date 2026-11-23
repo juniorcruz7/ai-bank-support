@@ -1,11 +1,14 @@
 """CLI do assistente de suporte (ponto de entrada)."""
 
 import argparse
+import getpass
 import logging
 import shutil
 import sys
 from pathlib import Path
 
+from app import auth
+from app.auth import AccessDeniedError, AuthError
 from app.compare import (
     COMPARISON_TEMPERATURE,
     DEFAULT_VERSIONS,
@@ -19,8 +22,8 @@ from app.compare import (
 from app.config import ConfigError
 from app.generators import OutputValidationError
 from app.llm_client import LLMAuthError, LLMError
-from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket
-from app.prompt_builder import CONTENT_TYPES, PROMPTS_DIR, PromptError, list_versions
+from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket, User
+from app.prompt_builder import CONTENT_TYPES, DEFAULT_VERSION, PROMPTS_DIR, PromptError, list_versions
 from app.render import (
     CONTENT_LABELS,
     render_history,
@@ -29,24 +32,30 @@ from app.render import (
     render_side_by_side,
 )
 from app.runtime import make_client, setup_logging
-from app.service import RunResult, run_content
+from app.service import (
+    RunResult,
+    customer_history,
+    open_ticket,
+    resolve_ticket,
+    run_content,
+    visible_profiles,
+    visible_tickets,
+)
 from app.storage import (
     PROFILES_PATH,
     RUNS_DIR,
     TICKETS_PATH,
+    USERS_PATH,
     DataError,
-    add_ticket,
-    close_ticket,
     get_profile,
-    list_customer_runs,
     load_profiles,
     load_tickets,
+    load_users,
 )
 
 ROOT_DIR = Path(__file__).resolve().parent
 LOG_DIR = ROOT_DIR / "logs"
 ALL_TYPES = "all"
-DEFAULT_VERSION = "v2"
 NEW_TICKET = "__novo__"
 
 
@@ -54,7 +63,17 @@ class CliError(Exception):
     """Erro de uso da CLI; a mensagem é legível para o usuário."""
 
 
-USER_ERRORS = (ConfigError, DataError, PromptError, LLMError, OutputValidationError, CompareError, CliError)
+USER_ERRORS = (
+    ConfigError,
+    DataError,
+    PromptError,
+    LLMError,
+    OutputValidationError,
+    CompareError,
+    CliError,
+    AuthError,
+    AccessDeniedError,
+)
 logger = logging.getLogger("main")
 
 
@@ -110,25 +129,57 @@ def _require(value: str | None, flag: str) -> None:
         raise CliError(f"Informe {flag} (ou rode em um terminal interativo para escolher).")
 
 
+def _ask_password(prompt: str = "Senha: ") -> str:
+    """Terminal: getpass, sem eco. Entrada redirecionada: primeira linha da entrada padrão.
+
+    No Windows o getpass lê direto do console e ignoraria a senha enviada por pipe.
+    """
+    try:
+        if is_interactive():
+            return getpass.getpass(prompt)
+        line = sys.stdin.readline()
+    except EOFError:
+        line = ""
+    if not line:
+        raise CliError("Entrada encerrada antes de informar a senha.")
+    return line.rstrip("\r\n")
+
+
+def _login(args: argparse.Namespace, profiles: dict[str, Profile]) -> User:
+    """Usuário pela flag --user (ou perguntado no terminal); a senha é sempre pedida (RF19)."""
+    users = load_users(profiles, USERS_PATH)
+    _require(args.user, "--user")
+    username = args.user or _ask("Usuário: ")
+    user = auth.authenticate(users, username, _ask_password())
+    logger.info("login: %s (%s)", user.username, user.role)
+    return user
+
+
 def _profile_label(p: Profile) -> str:
     return f"{p.id} · {p.name} ({p.technical_level}, {p.communication_style}, {p.channel})"
 
 
-def _pick_customer(profiles: dict[str, Profile], customer_id: str | None) -> Profile:
+def _pick_customer(user: User, profiles: dict[str, Profile], customer_id: str | None) -> Profile:
+    """Atendente escolhe qualquer cliente; a conta de cliente fica presa ao próprio perfil."""
+    if not auth.is_agent(user):
+        customer_id = customer_id or user.customer_id
+    if customer_id:
+        auth.require_customer_access(user, customer_id)
     _require(customer_id, "--customer")
     if not customer_id:
-        customer_id = _choose("Escolha o cliente:", [(p.id, _profile_label(p)) for p in profiles.values()])
+        options = [(p.id, _profile_label(p)) for p in visible_profiles(user, profiles).values()]
+        customer_id = _choose("Escolha o cliente:", options)
     return get_profile(profiles, customer_id)
 
 
 def _ask_new_ticket(
-    profiles: dict[str, Profile], profile: Profile, title: str | None, description: str | None
+    user: User, profiles: dict[str, Profile], profile: Profile, title: str | None, description: str | None
 ) -> Ticket:
     _require(title, "--title")
     _require(description, "--description")
     title = title or _ask("Título do ticket: ")
     description = description or _ask("Descrição (como o cliente escreveu): ")
-    ticket = add_ticket(profiles, profile.id, title, description, path=TICKETS_PATH)
+    ticket = open_ticket(user, profiles, profile.id, title, description, path=TICKETS_PATH)
     print(f"Ticket {ticket.id} criado para {profile.id} · {profile.name}.")
     return ticket
 
@@ -136,16 +187,19 @@ def _ask_new_ticket(
 # --- comandos ----------------------------------------------------------------
 
 
-def _pick_profile_and_ticket(args: argparse.Namespace) -> tuple[Profile, Ticket, list[Ticket]]:
+def _pick_profile_and_ticket(
+    args: argparse.Namespace, user: User, profiles: dict[str, Profile]
+) -> tuple[Profile, Ticket, list[Ticket]]:
     """Resolve cliente e ticket pelas flags ou por menu; permite digitar um ticket novo."""
-    profiles = load_profiles(PROFILES_PATH)
     tickets = load_tickets(profiles, TICKETS_PATH)
     by_id = {t.id: t for t in tickets}
 
     if args.ticket and args.ticket not in by_id:
         raise CliError(f"Ticket {args.ticket!r} não existe.")
+    if args.ticket:
+        auth.require_customer_access(user, by_id[args.ticket].customer_id)
     customer_id = args.customer or (by_id[args.ticket].customer_id if args.ticket else None)
-    profile = _pick_customer(profiles, customer_id)
+    profile = _pick_customer(user, profiles, customer_id)
 
     ticket_id = args.ticket
     _require(ticket_id, "--ticket")
@@ -153,7 +207,7 @@ def _pick_profile_and_ticket(args: argparse.Namespace) -> tuple[Profile, Ticket,
         own = [(t.id, f"{t.id} [{t.status}] {t.title}") for t in tickets if t.customer_id == profile.id]
         ticket_id = _choose("Escolha o ticket:", [*own, (NEW_TICKET, "Digitar um novo ticket")])
     if ticket_id == NEW_TICKET:
-        ticket = _ask_new_ticket(profiles, profile, None, None)
+        ticket = _ask_new_ticket(user, profiles, profile, None, None)
         tickets = load_tickets(profiles, TICKETS_PATH)
     else:
         ticket = by_id[ticket_id]
@@ -163,20 +217,28 @@ def _pick_profile_and_ticket(args: argparse.Namespace) -> tuple[Profile, Ticket,
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
-    profile, ticket, tickets = _pick_profile_and_ticket(args)
+    profiles = load_profiles(PROFILES_PATH)
+    user = _login(args, profiles)
+    allowed = auth.allowed_content_types(user)
+    # Tipo e versão pedidos por flag são checados antes de qualquer menu ou chamada à API.
+    if args.type and args.type != ALL_TYPES:
+        auth.require_content_type(user, args.type)
+    if args.prompt_version:
+        auth.require_version(user, args.prompt_version)
+    profile, ticket, tickets = _pick_profile_and_ticket(args, user, profiles)
 
     content_type = args.type
     _require(content_type, "--type")
     if not content_type:
-        options = [(t, CONTENT_LABELS[t]) for t in CONTENT_TYPES] + [(ALL_TYPES, "Todos os 4 tipos")]
+        options = [(t, CONTENT_LABELS[t]) for t in allowed] + [(ALL_TYPES, f"Todos os {len(allowed)} tipos")]
         content_type = _choose("Escolha o tipo de conteúdo:", options)
 
     version = args.prompt_version
     if not version:
         versions = list_versions(PROMPTS_DIR)
         default = DEFAULT_VERSION if DEFAULT_VERSION in versions else versions[-1]
-        # Menu de versão só no fluxo por menus; com flags, sem --version, vale o padrão.
-        in_menu_flow = args.type is None
+        # Menu de versão só no fluxo por menus do atendente; com flags, sem --version, vale o padrão.
+        in_menu_flow = args.type is None and auth.is_agent(user)
         version = (
             _choose(f"Escolha a versão do prompt (padrão {default}):", [(v, v) for v in versions], default)
             if in_menu_flow
@@ -184,12 +246,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
         )
 
     client = make_client()
-    types = list(CONTENT_TYPES) if content_type == ALL_TYPES else [content_type]
+    types = list(allowed) if content_type == ALL_TYPES else [content_type]
     failures: list[str] = []
     for current in types:
         try:
             result = run_content(
-                profile, ticket, tickets, current, version, client, runs_dir=RUNS_DIR, prompts_dir=PROMPTS_DIR
+                user, profile, ticket, tickets, current, version, client, runs_dir=RUNS_DIR, prompts_dir=PROMPTS_DIR
             )
         except LLMAuthError:
             raise
@@ -239,13 +301,16 @@ def _ask_rubric(versions: list[str]) -> VersionScores:
 
 
 def cmd_compare(args: argparse.Namespace) -> int:
+    profiles = load_profiles(PROFILES_PATH)
+    user = _login(args, profiles)
+    auth.require_agent(user, "comparar versões")
     versions = validate_versions(args.versions or DEFAULT_VERSIONS)
     # A rubrica é validada antes de gastar chamadas na API.
     scores = load_rubric_file(Path(args.rubric), versions) if args.rubric else None
     if scores is None and not is_interactive():
         raise CliError("Informe --rubric arquivo.json (ou rode em um terminal interativo para digitar as notas).")
 
-    profile, ticket, tickets = _pick_profile_and_ticket(args)
+    profile, ticket, tickets = _pick_profile_and_ticket(args, user, profiles)
     content_type = args.type
     _require(content_type, "--type")
     if not content_type:
@@ -255,7 +320,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
     client = make_client(temperature=COMPARISON_TEMPERATURE)
     comparison = run_comparison(
-        profile, ticket, tickets, content_type, versions, client, runs_dir=RUNS_DIR, prompts_dir=PROMPTS_DIR
+        user, profile, ticket, tickets, content_type, versions, client, runs_dir=RUNS_DIR, prompts_dir=PROMPTS_DIR
     )
 
     print(f"\n=== Comparação · {CONTENT_LABELS[content_type]} · {ticket.id} · {profile.name} ===\n")
@@ -267,7 +332,7 @@ def cmd_compare(args: argparse.Namespace) -> int:
         print(f"{result.run.prompt_version}: {_display_path(result.path)} ({status})")
 
     scores = scores or _ask_rubric(versions)
-    evaluations = save_evaluations(comparison, scores)
+    evaluations = save_evaluations(user, comparison, scores)
     print(f"\n{render_scores_table(evaluations)}")
     print(f"\nAvaliação gravada nas {len(versions)} execuções (comparison_id {comparison.comparison_id}).")
     return 0
@@ -275,13 +340,16 @@ def cmd_compare(args: argparse.Namespace) -> int:
 
 def cmd_ticket_add(args: argparse.Namespace) -> int:
     profiles = load_profiles(PROFILES_PATH)
-    profile = _pick_customer(profiles, args.customer)
-    _ask_new_ticket(profiles, profile, args.title, args.description)
+    user = _login(args, profiles)
+    profile = _pick_customer(user, profiles, args.customer)
+    _ask_new_ticket(user, profiles, profile, args.title, args.description)
     return 0
 
 
 def cmd_ticket_close(args: argparse.Namespace) -> int:
     profiles = load_profiles(PROFILES_PATH)
+    user = _login(args, profiles)
+    auth.require_agent(user, "fechar ticket")
     tickets = load_tickets(profiles, TICKETS_PATH)
     ticket_id = args.ticket_id
     _require(ticket_id, "o ID do ticket (ex.: ticket close T001)")
@@ -292,7 +360,7 @@ def cmd_ticket_close(args: argparse.Namespace) -> int:
         ticket_id = _choose("Escolha o ticket a fechar:", open_tickets)
     _require(args.resolution, "--resolution")
     resolution = args.resolution or _ask("Resolução: ")
-    ticket = close_ticket(profiles, ticket_id, resolution, path=TICKETS_PATH)
+    ticket = resolve_ticket(user, profiles, ticket_id, resolution, path=TICKETS_PATH)
     print(f"Ticket {ticket.id} fechado como resolvido.")
     print(f"A resolução passa a entrar no contexto dos próximos tickets de {ticket.customer_id}.")
     return 0
@@ -300,11 +368,11 @@ def cmd_ticket_close(args: argparse.Namespace) -> int:
 
 def cmd_history(args: argparse.Namespace) -> int:
     profiles = load_profiles(PROFILES_PATH)
-    tickets = load_tickets(profiles, TICKETS_PATH)
-    profile = _pick_customer(profiles, args.customer)
-    own = [t for t in tickets if t.customer_id == profile.id]
-    runs = [(_display_path(path), run) for path, run in list_customer_runs(profile.id, RUNS_DIR)]
-    print(render_history(profile, own, runs))
+    user = _login(args, profiles)
+    tickets = visible_tickets(user, load_tickets(profiles, TICKETS_PATH))
+    profile = _pick_customer(user, profiles, args.customer)
+    own, runs = customer_history(user, profile.id, tickets, RUNS_DIR)
+    print(render_history(profile, own, [(_display_path(path), run) for path, run in runs]))
     return 0
 
 
@@ -313,15 +381,19 @@ def build_parser() -> argparse.ArgumentParser:
         prog="main.py", description="Assistente de suporte de banco digital com prompts versionados."
     )
     commands = parser.add_subparsers(dest="command", required=True, metavar="comando")
+    login = argparse.ArgumentParser(add_help=False)
+    login.add_argument("--user", help="usuário (a senha é pedida no terminal)")
 
-    generate = commands.add_parser("generate", help="gera conteúdo de suporte para um ticket")
+    generate = commands.add_parser("generate", help="gera conteúdo de suporte para um ticket", parents=[login])
     generate.add_argument("--customer", help="ID do cliente (ex.: C001)")
     generate.add_argument("--ticket", help="ID do ticket (ex.: T001)")
     generate.add_argument("--type", choices=[*CONTENT_TYPES, ALL_TYPES], help="tipo de conteúdo ou 'all'")
     generate.add_argument("--version", dest="prompt_version", help=f"versão do prompt (padrão {DEFAULT_VERSION})")
     generate.set_defaults(handler=cmd_generate)
 
-    compare = commands.add_parser("compare", help="compara versões do prompt no mesmo cenário e registra a rubrica")
+    compare = commands.add_parser(
+        "compare", help="compara versões do prompt no mesmo cenário e registra a rubrica", parents=[login]
+    )
     compare.add_argument("--customer", help="ID do cliente (ex.: C001)")
     compare.add_argument("--ticket", help="ID do ticket (ex.: T001)")
     compare.add_argument("--type", choices=CONTENT_TYPES, help="tipo de conteúdo a comparar")
@@ -331,17 +403,19 @@ def build_parser() -> argparse.ArgumentParser:
 
     ticket = commands.add_parser("ticket", help="gerencia tickets")
     ticket_commands = ticket.add_subparsers(dest="ticket_command", required=True, metavar="ação")
-    add = ticket_commands.add_parser("add", help="abre um ticket novo para um cliente")
+    add = ticket_commands.add_parser("add", help="abre um ticket novo para um cliente", parents=[login])
     add.add_argument("--customer", help="ID do cliente (ex.: C001)")
     add.add_argument("--title", help="título curto do ticket")
     add.add_argument("--description", help="descrição como o cliente escreveu")
     add.set_defaults(handler=cmd_ticket_add)
-    close = ticket_commands.add_parser("close", help="fecha um ticket como resolvido e grava a resolução")
+    close = ticket_commands.add_parser(
+        "close", help="fecha um ticket como resolvido e grava a resolução", parents=[login]
+    )
     close.add_argument("ticket_id", nargs="?", metavar="TICKET", help="ID do ticket (ex.: T001)")
     close.add_argument("--resolution", help="como o problema foi resolvido")
     close.set_defaults(handler=cmd_ticket_close)
 
-    history = commands.add_parser("history", help="lista os tickets e as execuções de um cliente")
+    history = commands.add_parser("history", help="lista os tickets e as execuções de um cliente", parents=[login])
     history.add_argument("--customer", help="ID do cliente (ex.: C001)")
     history.set_defaults(handler=cmd_history)
     return parser

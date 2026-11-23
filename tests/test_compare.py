@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from app.compare import CompareError, load_rubric_file, run_comparison, save_evaluations
 from app.models import Run, Score
 from app.storage import load_profiles, load_tickets
-from tests.fakes import VALID_DIAGNOSIS, FakeClient
+from tests.fakes import AGENT, VALID_DIAGNOSIS, FakeClient
 
 PROFILES = load_profiles()
 TICKETS = load_tickets(PROFILES)
@@ -22,7 +22,7 @@ def _scores(*values):
 
 def _compare(tmp_path, versions=("v1", "v2")):
     client = FakeClient(*[VALID_DIAGNOSIS] * len(versions))
-    result = run_comparison(PROFILES["C001"], T001, TICKETS, "diagnosis", versions, client, runs_dir=tmp_path)
+    result = run_comparison(AGENT, PROFILES["C001"], T001, TICKETS, "diagnosis", versions, client, runs_dir=tmp_path)
     return result, client
 
 
@@ -38,7 +38,7 @@ def test_same_scenario_only_template_changes(tmp_path):
 
 def test_save_evaluations_links_runs(tmp_path):
     comparison, _ = _compare(tmp_path)
-    evaluations = save_evaluations(comparison, {"v1": _scores(2, 1, 2), "v2": _scores(4, 5, 4)})
+    evaluations = save_evaluations(AGENT, comparison, {"v1": _scores(2, 1, 2), "v2": _scores(4, 5, 4)})
 
     assert evaluations["v1"].total == 5 and evaluations["v2"].total == 13
     saved = [Run.model_validate_json(r.path.read_text(encoding="utf-8")) for r in comparison.results]
@@ -50,13 +50,13 @@ def test_save_evaluations_links_runs(tmp_path):
 def test_save_evaluations_requires_every_version(tmp_path):
     comparison, _ = _compare(tmp_path)
     with pytest.raises(CompareError, match=r"Faltam as notas da\(s\) versão\(ões\): v2"):
-        save_evaluations(comparison, {"v1": _scores(3, 3, 3)})
+        save_evaluations(AGENT, comparison, {"v1": _scores(3, 3, 3)})
 
 
 @pytest.mark.parametrize("versions, message", [(("v2",), "pelo menos 2"), (("v1", "v1"), "repetidas")])
 def test_invalid_versions(tmp_path, versions, message):
     with pytest.raises(CompareError, match=message):
-        run_comparison(PROFILES["C001"], T001, TICKETS, "diagnosis", versions, FakeClient(), runs_dir=tmp_path)
+        run_comparison(AGENT, PROFILES["C001"], T001, TICKETS, "diagnosis", versions, FakeClient(), runs_dir=tmp_path)
 
 
 @pytest.mark.parametrize(

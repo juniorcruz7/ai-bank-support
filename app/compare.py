@@ -8,9 +8,10 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from app import auth
 from app.config import APP_TIMEZONE
 from app.llm_client import LLMClient
-from app.models import RUBRIC_CRITERIA, Evaluation, Profile, Score, Ticket
+from app.models import RUBRIC_CRITERIA, Evaluation, Profile, Score, Ticket, User
 from app.prompt_builder import PROMPTS_DIR
 from app.service import RunResult, run_content
 from app.storage import RUNS_DIR, update_run
@@ -47,6 +48,7 @@ def validate_versions(versions: list[str] | tuple[str, ...]) -> list[str]:
 
 
 def run_comparison(
+    user: User,
     profile: Profile,
     ticket: Ticket,
     tickets: list[Ticket],
@@ -57,16 +59,18 @@ def run_comparison(
     prompts_dir: Path = PROMPTS_DIR,
 ) -> ComparisonResult:
     """Roda o mesmo cenário em cada versão; só o template muda (RF11)."""
+    auth.require_agent(user, "comparar versões")
     versions = validate_versions(versions)
     results = tuple(
-        run_content(profile, ticket, tickets, content_type, v, client, runs_dir=runs_dir, prompts_dir=prompts_dir)
+        run_content(user, profile, ticket, tickets, content_type, v, client, runs_dir=runs_dir, prompts_dir=prompts_dir)
         for v in versions
     )
     return ComparisonResult(comparison_id=str(uuid.uuid4()), content_type=content_type, results=results)
 
 
-def save_evaluations(comparison: ComparisonResult, scores: VersionScores) -> dict[str, Evaluation]:
+def save_evaluations(user: User, comparison: ComparisonResult, scores: VersionScores) -> dict[str, Evaluation]:
     """Grava a rubrica no campo evaluation de cada execução comparada (RF12)."""
+    auth.require_agent(user, "dar notas da rubrica")
     missing = [v for v in comparison.versions if v not in scores]
     if missing:
         raise CompareError(f"Faltam as notas da(s) versão(ões): {', '.join(missing)}.")

@@ -7,7 +7,7 @@ import pytest
 
 import main
 from app.storage import PROFILES_PATH, TICKETS_PATH
-from tests.fakes import VALID_BY_TYPE, VALID_DIAGNOSIS, FakeClient
+from tests.fakes import VALID_BY_TYPE, VALID_DIAGNOSIS, FakeClient, write_test_users
 
 
 @pytest.fixture
@@ -22,6 +22,11 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "RUNS_DIR", tmp_path / "runs")
     monkeypatch.setattr(main, "LOG_DIR", tmp_path / "logs")
     monkeypatch.setattr(main, "is_interactive", lambda: False)
+    write_test_users(data / "users.json")
+    monkeypatch.setattr(main, "USERS_PATH", data / "users.json")
+    # A senha vem do getpass; nos testes, a senha de demonstração do usuário informado.
+    monkeypatch.setattr(main, "_ask_password", lambda _prompt="": env_password[0])
+    env_password = ["atendente-demo"]
 
     class Env:
         root = tmp_path
@@ -48,7 +53,7 @@ def env(tmp_path, monkeypatch):
 
 
 def _generate(*extra):
-    return main.main(["generate", "--customer", "C001", "--ticket", "T001", *extra])
+    return main.main(["generate", "--user", "atendente", "--customer", "C001", "--ticket", "T001", *extra])
 
 
 def test_generate_prints_output_and_saved_path(env, capsys):
@@ -89,7 +94,7 @@ def test_flags_without_version_skip_menu_even_in_terminal(env, capsys):
 
 def test_ticket_alone_infers_customer(env, capsys):
     env.responses(VALID_DIAGNOSIS)
-    assert main.main(["generate", "--ticket", "T001", "--type", "diagnosis"]) == 0
+    assert main.main(["generate", "--user", "atendente", "--ticket", "T001", "--type", "diagnosis"]) == 0
     assert "Maria" in capsys.readouterr().out
 
 
@@ -111,14 +116,35 @@ def test_type_all_continues_after_failure(env, capsys):
 @pytest.mark.parametrize(
     "argv, message",
     [
-        (["generate", "--customer", "C999", "--ticket", "T001", "--type", "diagnosis"], "Perfil 'C999' não existe"),
-        (["generate", "--customer", "C001", "--ticket", "T999", "--type", "diagnosis"], "Ticket 'T999' não existe"),
-        (["generate", "--customer", "C002", "--ticket", "T001", "--type", "diagnosis"], "pertence a C001"),
         (
-            ["generate", "--customer", "C001", "--ticket", "T001", "--type", "diagnosis", "--version", "v9"],
+            ["generate", "--user", "atendente", "--customer", "C999", "--ticket", "T001", "--type", "diagnosis"],
+            "Perfil 'C999' não existe",
+        ),
+        (
+            ["generate", "--user", "atendente", "--customer", "C001", "--ticket", "T999", "--type", "diagnosis"],
+            "Ticket 'T999' não existe",
+        ),
+        (
+            ["generate", "--user", "atendente", "--customer", "C002", "--ticket", "T001", "--type", "diagnosis"],
+            "pertence a C001",
+        ),
+        (
+            [
+                "generate",
+                "--user",
+                "atendente",
+                "--customer",
+                "C001",
+                "--ticket",
+                "T001",
+                "--type",
+                "diagnosis",
+                "--version",
+                "v9",
+            ],
             "Versão 'v9'",
         ),
-        (["generate", "--customer", "C001", "--ticket", "T001"], "Informe --type"),
+        (["generate", "--user", "atendente", "--customer", "C001", "--ticket", "T001"], "Informe --type"),
     ],
 )
 def test_user_errors_are_clean(env, capsys, argv, message):
@@ -144,6 +170,8 @@ def test_ticket_add(env, capsys):
     argv = [
         "ticket",
         "add",
+        "--user",
+        "atendente",
         "--customer",
         "C003",
         "--title",
@@ -161,7 +189,7 @@ def test_interactive_flow_with_new_ticket(env, capsys):
     # cliente 2 (C002) -> último item (novo ticket) -> título -> descrição -> tipo 1 -> versão padrão
     env.answers("2", "2", "Pix não chegou", "Mandei um Pix e não chegou.", "1", "")
     env.responses(VALID_DIAGNOSIS)
-    assert main.main(["generate"]) == 0
+    assert main.main(["generate", "--user", "atendente"]) == 0
     out = capsys.readouterr().out
     assert "Ticket T007 criado para C002 · Lucas." in out
     assert "=== Diagnóstico · T007 · Lucas · v2 ===" in out
@@ -171,7 +199,7 @@ def test_interactive_flow_with_new_ticket(env, capsys):
 def test_interactive_rejects_invalid_option(env, capsys):
     env.answers("9", "1", "1", "1", "2")  # 9 é inválido, depois C001, T001, diagnosis, v2
     env.responses(VALID_DIAGNOSIS)
-    assert main.main(["generate"]) == 0
+    assert main.main(["generate", "--user", "atendente"]) == 0
     assert "Opção inválida" in capsys.readouterr().out
 
 
@@ -195,7 +223,9 @@ def _rubric_file(root, v1=(2, 1, 2), v2=(4, 5, 4)):
 
 
 def _compare(*extra):
-    return main.main(["compare", "--customer", "C001", "--ticket", "T001", "--type", "diagnosis", *extra])
+    return main.main(
+        ["compare", "--user", "atendente", "--customer", "C001", "--ticket", "T001", "--type", "diagnosis", *extra]
+    )
 
 
 def _saved_runs(root):
@@ -268,7 +298,12 @@ def _ticket_by_id(env, ticket_id):
 
 
 def test_ticket_close_with_flags(env, capsys):
-    assert main.main(["ticket", "close", "T001", "--resolution", "Pix estornado pelo banco de destino."]) == 0
+    assert (
+        main.main(
+            ["ticket", "close", "--user", "atendente", "T001", "--resolution", "Pix estornado pelo banco de destino."]
+        )
+        == 0
+    )
     assert "Ticket T001 fechado como resolvido." in capsys.readouterr().out
     ticket = _ticket_by_id(env, "T001")
     assert ticket["status"] == "resolvido"
@@ -277,15 +312,15 @@ def test_ticket_close_with_flags(env, capsys):
 
 def test_ticket_close_interactive_lists_only_open_tickets(env, capsys):
     env.answers("1", "Cartão internacional habilitado no app.")
-    assert main.main(["ticket", "close"]) == 0
+    assert main.main(["ticket", "close", "--user", "atendente"]) == 0
     out = capsys.readouterr().out
     assert "T001 · C001" in out and "T005" not in out
     assert _ticket_by_id(env, "T001")["status"] == "resolvido"
 
 
 def test_ticket_close_errors_are_readable(env, capsys):
-    assert main.main(["ticket", "close", "T005", "--resolution", "Outra."]) == 1
-    assert main.main(["ticket", "close", "--resolution", "Sem ID."]) == 1
+    assert main.main(["ticket", "close", "--user", "atendente", "T005", "--resolution", "Outra."]) == 1
+    assert main.main(["ticket", "close", "--user", "atendente", "--resolution", "Sem ID."]) == 1
     err = capsys.readouterr().err
     assert "Erro: Ticket T005 já está resolvido" in err
     assert "Erro: Informe o ID do ticket" in err
@@ -298,7 +333,7 @@ def test_history_lists_tickets_and_runs(env, capsys):
     (env.root / "runs" / "C001" / "T001" / "quebrado.json").write_text("{", encoding="utf-8")
     capsys.readouterr()
 
-    assert main.main(["history", "--customer", "C001"]) == 0
+    assert main.main(["history", "--user", "atendente", "--customer", "C001"]) == 0
     out = capsys.readouterr().out
     assert "=== Histórico · C001 · Maria" in out
     assert "T001  20/11/2026 21:05  [aberto]  Pix não chegou" in out
@@ -308,11 +343,83 @@ def test_history_lists_tickets_and_runs(env, capsys):
 
 
 def test_history_without_runs(env, capsys):
-    assert main.main(["history", "--customer", "C002"]) == 0
+    assert main.main(["history", "--user", "atendente", "--customer", "C002"]) == 0
     out = capsys.readouterr().out
     assert "Tickets (1):" in out and "Execuções (0):" in out and "(nenhuma)" in out
 
 
 def test_history_unknown_customer(env, capsys):
-    assert main.main(["history", "--customer", "C999"]) == 1
+    assert main.main(["history", "--user", "atendente", "--customer", "C999"]) == 1
     assert "Perfil 'C999' não existe" in capsys.readouterr().err
+
+
+# --- login e permissões (RF19–RF22) ------------------------------------------
+
+
+def _as(monkeypatch, password):
+    monkeypatch.setattr(main, "_ask_password", lambda _prompt="": password)
+
+
+def test_wrong_password_is_rejected(env, capsys, monkeypatch):
+    _as(monkeypatch, "errada")
+    assert main.main(["history", "--user", "atendente", "--customer", "C001"]) == 1
+    err = capsys.readouterr().err
+    assert "Erro: Usuário ou senha inválidos." in err and "Traceback" not in err
+
+
+def test_user_is_required_without_terminal(env, capsys):
+    assert main.main(["history", "--customer", "C001"]) == 1
+    assert "Informe --user" in capsys.readouterr().err
+
+
+def test_customer_generates_own_content_without_customer_flag(env, capsys, monkeypatch):
+    _as(monkeypatch, "maria-demo")
+    env.responses(VALID_BY_TYPE["resolution_steps"], VALID_BY_TYPE["clarifying_questions"])
+    assert main.main(["generate", "--user", "maria", "--ticket", "T001", "--type", "all"]) == 0
+    out = capsys.readouterr().out
+    assert "=== Passo a passo · T001 · Maria · v2 ===" in out
+    assert "=== Perguntas de esclarecimento" in out
+    assert "Diagnóstico" not in out and "Fluxograma" not in out
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["generate", "--ticket", "T001", "--type", "diagnosis"], "uso interno do atendente"),
+        (["generate", "--ticket", "T002", "--type", "resolution_steps"], "só acessa os próprios tickets"),
+        (["generate", "--ticket", "T001", "--type", "resolution_steps", "--version", "v1"], "versão padrão"),
+        (["compare", "--ticket", "T001", "--type", "resolution_steps"], "comparar versões é só para atendentes"),
+        (["ticket", "close", "T001", "--resolution", "Resolvido."], "fechar ticket é só para atendentes"),
+        (["history", "--customer", "C002"], "só acessa os próprios tickets"),
+        (["ticket", "add", "--customer", "C002", "--title", "X", "--description", "Descrição longa."], "próprios"),
+    ],
+)
+def test_customer_restrictions(env, capsys, monkeypatch, argv, message):
+    _as(monkeypatch, "maria-demo")
+    env.responses()  # nenhuma chamada à API pode acontecer
+    position = 2 if argv[0] == "ticket" else 1
+    assert main.main([*argv[:position], "--user", "maria", *argv[position:]]) == 1
+    err = capsys.readouterr().err
+    assert "Erro: Acesso negado" in err and message in err
+    assert env.client.calls == []
+
+
+def test_customer_history_hides_internal_runs(env, capsys, monkeypatch):
+    env.responses(VALID_DIAGNOSIS)
+    _generate("--type", "diagnosis")  # como atendente
+    _as(monkeypatch, "maria-demo")
+    capsys.readouterr()
+
+    assert main.main(["history", "--user", "maria"]) == 0
+    out = capsys.readouterr().out
+    assert "=== Histórico · C001 · Maria" in out and "Execuções (0):" in out
+
+
+def test_customer_interactive_menu_offers_only_allowed_types(env, capsys, monkeypatch):
+    _as(monkeypatch, "maria-demo")
+    env.answers("1", "1")  # ticket T001, primeiro tipo (passo a passo); sem menu de cliente nem de versão
+    env.responses(VALID_BY_TYPE["resolution_steps"])
+    assert main.main(["generate", "--user", "maria"]) == 0
+    out = capsys.readouterr().out
+    assert "Escolha o cliente" not in out and "Escolha a versão" not in out
+    assert "1) Passo a passo" in out and "Todos os 2 tipos" in out and "Diagnóstico" not in out

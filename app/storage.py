@@ -12,12 +12,13 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from app.config import APP_TIMEZONE
-from app.models import Profile, Run, Ticket
+from app.models import Profile, Run, Ticket, User
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT_DIR / "data"
 PROFILES_PATH = DATA_DIR / "profiles.json"
 TICKETS_PATH = DATA_DIR / "tickets.json"
+USERS_PATH = DATA_DIR / "users.json"
 RUNS_DIR = ROOT_DIR / "runs"
 
 # O nome do arquivo termina com o começo da chave de cache: o cache acha a
@@ -127,6 +128,19 @@ def load_tickets(profiles: dict[str, Profile], path: Path = TICKETS_PATH) -> lis
         if ticket.customer_id not in profiles:
             raise DataError(f"Ticket {ticket.id!r} aponta para cliente inexistente: {ticket.customer_id!r}.")
     return tickets
+
+
+def load_users(profiles: dict[str, Profile], path: Path = USERS_PATH) -> dict[str, User]:
+    """Carrega e valida as contas (RF19); conta de cliente precisa apontar para um perfil existente."""
+    users = _validate_items(_read_json_list(path), User, "Conta", path.name)
+    seen: set[str] = set()
+    for user in users:
+        if user.username in seen:
+            raise DataError(f"Usuário duplicado em {path.name}: {user.username!r}")
+        seen.add(user.username)
+        if user.customer_id is not None and user.customer_id not in profiles:
+            raise DataError(f"Conta {user.username!r} aponta para cliente inexistente: {user.customer_id!r}.")
+    return {user.username: user for user in users}
 
 
 def next_ticket_id(tickets: list[Ticket]) -> str:

@@ -2,7 +2,9 @@
 
 import json
 
+from app.auth import hash_password
 from app.llm_client import LLMResponse
+from app.models import User
 
 VALID_DIAGNOSIS = json.dumps(
     {
@@ -70,3 +72,35 @@ VALID_BY_TYPE = {
     "clarifying_questions": VALID_QUESTIONS,
     "flow_summary": VALID_FLOW,
 }
+
+
+# Contas iguais às de data/users.json, com hash de poucas iterações para os testes rodarem rápido.
+# Senha de cada conta: "<usuário>-demo".
+TEST_ACCOUNTS = (
+    ("maria", "customer", "C001"),
+    ("lucas", "customer", "C002"),
+    ("carlos", "customer", "C003"),
+    ("renata", "customer", "C004"),
+    ("ana", "customer", "C005"),
+    ("atendente", "agent", None),
+)
+TEST_ITERATIONS = 1000
+
+
+def make_user(username: str) -> User:
+    role, customer_id = next((r, c) for u, r, c in TEST_ACCOUNTS if u == username)
+    return User(
+        username=username,
+        role=role,
+        customer_id=customer_id,
+        password_hash=hash_password(f"{username}-demo", iterations=TEST_ITERATIONS),
+    )
+
+
+def write_test_users(path) -> None:
+    data = [make_user(username).model_dump(mode="json") for username, _, _ in TEST_ACCOUNTS]
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+
+AGENT = make_user("atendente")
+MARIA = make_user("maria")

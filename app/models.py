@@ -73,6 +73,28 @@ class Ticket(BaseModel):
         return self
 
 
+Role = Literal["customer", "agent"]
+
+
+class User(BaseModel):
+    """Conta de acesso (RF19): cliente aponta para um perfil; atendente não."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(pattern=r"^[a-z0-9_.-]{3,32}$")
+    role: Role
+    customer_id: str | None = None
+    password_hash: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _customer_link(self) -> "User":
+        if self.role == "customer" and not self.customer_id:
+            raise ValueError("conta de cliente precisa de 'customer_id'")
+        if self.role == "agent" and self.customer_id is not None:
+            raise ValueError("conta de atendente não tem 'customer_id'")
+        return self
+
+
 # --- Saídas do LLM -----------------------------------------------------------
 # O schema é só estrutural (vale igual para v1 e v2). Restrições de quantidade e
 # estilo ficam no prompt da v2. As checagens abaixo ficam em validadores, fora do

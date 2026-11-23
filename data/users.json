@@ -1,0 +1,38 @@
+[
+  {
+    "username": "maria",
+    "role": "customer",
+    "customer_id": "C001",
+    "password_hash": "pbkdf2_sha256$600000$j2Ctk7a4GgsQTBekvKLpRw==$qms1J9tjTMc6WFUyBS6S8KU9bvH0pJt2mnYC7Lgp0FE="
+  },
+  {
+    "username": "lucas",
+    "role": "customer",
+    "customer_id": "C002",
+    "password_hash": "pbkdf2_sha256$600000$qb2Dn0PqQa6wDopDbv5Erg==$5sWAKaQ1YHQZ7t4FU7LZyDKSUTBpVLbAEA8nY1wNZG0="
+  },
+  {
+    "username": "carlos",
+    "role": "customer",
+    "customer_id": "C003",
+    "password_hash": "pbkdf2_sha256$600000$tAKC1wDB6ewojh7myS/WqA==$uXr06+uEXCAbvjUNAH8cjibP/I2zsafgM30r/OWfESY="
+  },
+  {
+    "username": "renata",
+    "role": "customer",
+    "customer_id": "C004",
+    "password_hash": "pbkdf2_sha256$600000$+D5dKnHUY9xVSTibNj6sKA==$Gv4sBk11Avgl0FxHdEJfF6fuNDzF28WPuq63yl6g8ic="
+  },
+  {
+    "username": "ana",
+    "role": "customer",
+    "customer_id": "C005",
+    "password_hash": "pbkdf2_sha256$600000$8qXG+byWzxxTkM8Mr6vv2w==$a21qCuHlP6FLLyrrG/21giEF+66hz+Qq7utjVzszsq8="
+  },
+  {
+    "username": "atendente",
+    "role": "agent",
+    "customer_id": null,
+    "password_hash": "pbkdf2_sha256$600000$Wnn/uy2h0BRaoCW2lxmItQ==$9ZSuyfRoq89L92jXC9a4AKX7AoDVhVHjehOWZyB4L1M="
+  }
+]

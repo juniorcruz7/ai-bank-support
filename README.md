@@ -57,21 +57,48 @@ GEMINI_MAX_TOKENS=                # opcional (padrão 2048)
 
 ## Como usar
 
-Todos os comandos abaixo assumem o `.venv` ativado. Sem argumentos, a CLI abre menus numerados para escolher cliente, ticket, tipo e versão:
+Todos os comandos abaixo assumem o `.venv` ativado. Todo comando pede login: o usuário vai em `--user` e a senha é pedida no terminal, sem eco. Com a entrada redirecionada (pipe), a senha é lida da primeira linha. Sem os outros argumentos, a CLI abre menus numerados para escolher cliente, ticket, tipo e versão:
 
 ```bash
-python main.py generate
+python main.py generate --user atendente
 ```
+
+### Contas e permissões
+
+Há dois tipos de conta: **atendente**, que vê e faz tudo, e **cliente**, que só acessa os próprios tickets e só recebe o texto voltado para ele. As regras ficam na camada de serviço (`app/service.py` + `app/auth.py`), então valem igual na CLI e na interface web.
+
+| O que | Cliente | Atendente |
+| --- | --- | --- |
+| Abrir ticket | Só para si mesmo | Para qualquer cliente |
+| Passo a passo e perguntas | Dos próprios tickets | De todos |
+| Diagnóstico e fluxograma | Não | Sim |
+| Histórico | Só os próprios tickets e respostas (sem diagnóstico, fluxograma nem notas da rubrica) | Todos os clientes e execuções |
+| Fechar ticket, comparar versões e dar notas | Não | Sim |
+| Escolher a versão do prompt | Não (usa a `v2`) | Sim |
+
+Contas de demonstração em `data/users.json`. As senhas são fictícias e só existem para a demonstração; o arquivo guarda apenas o hash PBKDF2-SHA256 com salt.
+
+| Usuário | Senha | Conta |
+| --- | --- | --- |
+| `atendente` | `atendente-demo` | atendente |
+| `maria` | `maria-demo` | cliente C001 |
+| `lucas` | `lucas-demo` | cliente C002 |
+| `carlos` | `carlos-demo` | cliente C003 |
+| `renata` | `renata-demo` | cliente C004 |
+| `ana` | `ana-demo` | cliente C005 |
+
+Para criar uma conta, gere o hash com `python -m app.auth` (pede a senha duas vezes) e adicione o registro ao `data/users.json`.
 
 ### Gerar conteúdo
 
 ```bash
-python main.py generate --customer C001 --ticket T001 --type diagnosis --version v2
-python main.py generate --ticket T001 --type all            # os 4 tipos; o cliente vem do ticket
+python main.py generate --user atendente --customer C001 --ticket T001 --type diagnosis --version v2
+python main.py generate --user atendente --ticket T001 --type all   # os 4 tipos; o cliente vem do ticket
+python main.py generate --user maria --ticket T001 --type all       # cliente: só passo a passo e perguntas
 ```
 
-- `--type`: `diagnosis`, `resolution_steps`, `clarifying_questions`, `flow_summary` ou `all`.
-- `--version`: pasta em `prompts/` (padrão `v2`).
+- `--type`: `diagnosis`, `resolution_steps`, `clarifying_questions`, `flow_summary` ou `all` (para a conta de cliente, `all` são os 2 tipos permitidos).
+- `--version`: pasta em `prompts/` (padrão `v2`; só atendente).
 
 A saída aparece formatada no terminal, seguida do caminho do JSON salvo. Exemplo real de fluxograma (T001, cliente Maria, v2):
 
@@ -92,7 +119,7 @@ JSON salvo em: runs\C001\T001\20261122T145258_flow_summary_v2_9a7a2365_691ad6efa
 ### Comparar versões e registrar a rubrica
 
 ```bash
-python main.py compare --customer C001 --ticket T001 --type resolution_steps --versions v1 v2
+python main.py compare --user atendente --customer C001 --ticket T001 --type resolution_steps --versions v1 v2
 ```
 
 Roda o mesmo cenário em cada versão (mesmo perfil, ticket, histórico, modelo, `max_tokens` e temperatura fixa de 0.2; muda só o template), mostra as saídas lado a lado e pede, para cada versão, uma nota de 1 a 5 com justificativa em três critérios: **clareza**, **adequação ao cliente** e **acionabilidade**. As notas são gravadas no campo `evaluation` de cada execução, ligadas por um `comparison_id`. Para informar as notas por arquivo: `--rubric notas.json` (formato em [samples/README.md](samples/README.md)).
@@ -100,7 +127,7 @@ Roda o mesmo cenário em cada versão (mesmo perfil, ticket, histórico, modelo,
 ### Abrir um ticket novo
 
 ```bash
-python main.py ticket add --customer C003 --title "Maquininha" --description "A maquininha não conecta desde ontem."
+python main.py ticket add --user atendente --customer C003 --title "Maquininha" --description "A maquininha não conecta desde ontem."
 ```
 
 O ticket é anexado a `data/tickets.json` com o próximo ID (T007, T008…), `status: "aberto"` e data/hora. No `generate` interativo também existe a opção "Digitar um novo ticket".
@@ -108,7 +135,7 @@ O ticket é anexado a `data/tickets.json` com o próximo ID (T007, T008…), `st
 ### Fechar um ticket
 
 ```bash
-python main.py ticket close T001 --resolution "Pix estornado pelo banco de destino."
+python main.py ticket close T001 --user atendente --resolution "Pix estornado pelo banco de destino."
 ```
 
 Marca o ticket como `resolvido` e grava a `resolution` em `data/tickets.json` (escrita atômica; ticket inexistente, já resolvido ou resolução vazia dão erro e nada é gravado). A resolução passa a entrar no histórico dos próximos tickets do cliente e, como o conteúdo dos tickets de contexto faz parte da chave de cache, as gerações que dependem dele são refeitas. Sem argumentos, a CLI lista os tickets abertos e pede a resolução.
@@ -116,7 +143,8 @@ Marca o ticket como `resolvido` e grava a `resolution` em `data/tickets.json` (e
 ### Histórico de um cliente
 
 ```bash
-python main.py history --customer C001
+python main.py history --user atendente --customer C001
+python main.py history --user maria                  # cliente: o próprio histórico
 ```
 
 Lista os tickets do cliente (mais recentes primeiro, com a resolução quando houver) e as execuções gravadas em `runs/` para cada ticket: data, tipo, versão, se veio do cache, nota da rubrica e caminho do JSON.
@@ -134,7 +162,7 @@ Abre no navegador (padrão `http://localhost:8501`) uma interface sobre o mesmo 
 - **Histórico do cliente**: tickets e execuções gravadas, com o JSON de cada uma.
 - **Tickets**: abrir um ticket novo e fechar um ticket aberto com a resolução.
 
-A chave continua vindo do `.env`. Sem login: a interface é a ferramenta do atendente, como a CLI.
+A interface abre numa tela de login (mesmas contas da CLI). O atendente vê as 4 páginas; o cliente vê só Gerar conteúdo (passo a passo e perguntas, versão padrão), o próprio histórico e a abertura de tickets. A chave continua vindo do `.env`.
 
 ## Arquitetura
 
@@ -152,6 +180,7 @@ CLI (main.py) / interface web (streamlit_app.py)
 | `main.py` | CLI: subcomandos `generate`, `compare`, `ticket add`, `ticket close` e `history`, menus e mensagens de erro |
 | `streamlit_app.py` | Interface web: geração, comparação com rubrica, histórico e tickets |
 | `app/runtime.py` | Cliente LLM e logging compartilhados pela CLI e pela interface |
+| `app/auth.py` | Hash e verificação de senha (PBKDF2), login e regras de permissão |
 | `app/config.py` | Lê o `.env` (chave, modelo, temperatura, `max_tokens`) |
 | `app/models.py` | Modelos Pydantic: perfil, ticket, as 4 saídas, execução e rubrica |
 | `app/prompt_builder.py` | Monta o prompt em camadas a partir dos templates da versão |
@@ -211,7 +240,7 @@ ruff format --check .
 
 ## Limitações
 
-- O login de produção está fora do escopo: a CLI é a ferramenta do atendente, que escolhe o cliente.
+- O login é um controle de acesso de demonstração: contas num JSON, sem recuperação de senha, sem bloqueio por tentativas e sem HTTPS próprio. Num produto real, a identidade viria de um provedor de autenticação.
 - A avaliação da rubrica é manual e feita sobre poucos cenários.
 - Mais detalhes e próximos passos em [PROMPT_ENGINEERING_NOTES.md](PROMPT_ENGINEERING_NOTES.md#limitações-e-próximos-passos).
 

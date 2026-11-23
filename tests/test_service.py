@@ -11,7 +11,7 @@ from app.models import Diagnosis, Run
 from app.prompt_builder import PROMPTS_DIR
 from app.service import run_content
 from app.storage import load_profiles, load_tickets
-from tests.fakes import VALID_DIAGNOSIS, FakeClient
+from tests.fakes import AGENT, VALID_DIAGNOSIS, FakeClient
 
 PROFILES = load_profiles()
 TICKETS = load_tickets(PROFILES)
@@ -19,7 +19,9 @@ T001 = next(t for t in TICKETS if t.id == "T001")
 
 
 def _run(client, runs_dir, version="v2", **kwargs):
-    return run_content(PROFILES["C001"], T001, TICKETS, "diagnosis", version, client, runs_dir=runs_dir, **kwargs)
+    return run_content(
+        AGENT, PROFILES["C001"], T001, TICKETS, "diagnosis", version, client, runs_dir=runs_dir, **kwargs
+    )
 
 
 def _run_files(runs_dir):

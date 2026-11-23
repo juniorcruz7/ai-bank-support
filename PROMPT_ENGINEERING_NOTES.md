@@ -141,7 +141,7 @@ São regras escritas no prompt que o modelo nem sempre segue, o que motiva os pr
 
 - **Avaliação pequena e manual.** A rubrica foi aplicada a um cenário (T001 + C001) e uma execução por versão; com temperatura 0.2 ainda há variação entre execuções. Não é uma medida estatística.
 - **Regras no prompt não são garantias.** Como mostram as falhas acima, o modelo às vezes ignora regras escritas (perguntar o que já se sabe, prometer prazo).
-- **Identidade e acesso.** Aqui o atendente escolhe o cliente na CLI. Num produto real, o `customer_id` viria da sessão autenticada (login no app, telefone verificado, e-mail confirmado), ligado a identificadores externos numa tabela de identidades, nunca do texto digitado. O filtro de histórico por cliente já está no código, mas não há autenticação.
+- **Identidade e acesso.** Aqui o atendente escolhe o cliente na CLI. Num produto real, o `customer_id` viria da sessão autenticada (login no app, telefone verificado, e-mail confirmado), ligado a identificadores externos numa tabela de identidades, nunca do texto digitado. O projeto tem um login de demonstração (contas cliente/atendente com hash de senha e permissões na camada de serviço), sem recuperação de senha, bloqueio por tentativas nem integração com um provedor de identidade.
 - **Dados fictícios e domínio simplificado.** Não há integração com sistemas reais de Pix ou cartão; o modelo não consulta status de transação.
 
 **Próximos passos**
