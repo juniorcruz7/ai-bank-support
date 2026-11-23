@@ -5,6 +5,7 @@ import pytest
 from app.auth import AccessDeniedError
 from app.compare import ComparisonResult, run_comparison, save_evaluations
 from app.models import Score
+from app.prompt_builder import DEFAULT_VERSION
 from app.service import customer_history, open_ticket, resolve_ticket, run_content, visible_profiles, visible_tickets
 from app.storage import TICKETS_PATH, load_profiles, load_tickets
 from tests.fakes import AGENT, MARIA, VALID_BY_TYPE, VALID_DIAGNOSIS, FakeClient
@@ -22,7 +23,7 @@ def tickets_path(tmp_path):
     return path
 
 
-def _generate(user, ticket_id, content_type, tmp_path, version="v2"):
+def _generate(user, ticket_id, content_type, tmp_path, version=DEFAULT_VERSION):
     ticket = BY_ID[ticket_id]
     client = FakeClient(VALID_BY_TYPE[content_type])
     result = run_content(
@@ -177,7 +178,7 @@ def test_customer_cannot_save_rubric(tmp_path):
 
 
 def test_customer_uses_default_version_only(tmp_path):
-    assert _generate(MARIA, "T001", "resolution_steps", tmp_path)[0].run.prompt_version == "v2"
+    assert _generate(MARIA, "T001", "resolution_steps", tmp_path)[0].run.prompt_version == DEFAULT_VERSION
     with pytest.raises(AccessDeniedError, match="versão padrão do prompt"):
         _generate(MARIA, "T001", "resolution_steps", tmp_path, version="v1")
 

@@ -79,17 +79,17 @@ def test_second_run_shows_cache_hit(env, capsys):
     assert "cache hit" in (env.root / "logs" / "app.log").read_text(encoding="utf-8")
 
 
-def test_version_defaults_to_v2(env, capsys):
+def test_version_defaults_to_v3(env, capsys):
     env.responses(VALID_DIAGNOSIS)
     _generate("--type", "diagnosis")
-    assert "· v2 ===" in capsys.readouterr().out
+    assert "· v3 ===" in capsys.readouterr().out
 
 
 def test_flags_without_version_skip_menu_even_in_terminal(env, capsys):
     env.answers()  # terminal interativo, mas nenhuma resposta disponível
     env.responses(VALID_DIAGNOSIS)
     assert _generate("--type", "diagnosis") == 0
-    assert "· v2 ===" in capsys.readouterr().out
+    assert "· v3 ===" in capsys.readouterr().out
 
 
 def test_ticket_alone_infers_customer(env, capsys):
@@ -192,7 +192,7 @@ def test_interactive_flow_with_new_ticket(env, capsys):
     assert main.main(["generate", "--user", "atendente"]) == 0
     out = capsys.readouterr().out
     assert "Ticket T007 criado para C002 · Lucas." in out
-    assert "=== Diagnóstico · T007 · Lucas · v2 ===" in out
+    assert "=== Diagnóstico · T007 · Lucas · v3 ===" in out
     assert (env.root / "runs" / "C002" / "T007").is_dir()
 
 
@@ -339,7 +339,7 @@ def test_history_lists_tickets_and_runs(env, capsys):
     assert "T001  20/11/2026 21:05  [aberto]  Pix não chegou" in out
     assert "Resolução: Limite noturno" in out
     assert "Execuções (1):" in out  # o arquivo ilegível é ignorado
-    assert "Diagnóstico · v2 · gerado" in out
+    assert "Diagnóstico · v3 · gerado" in out
 
 
 def test_history_without_runs(env, capsys):
@@ -377,7 +377,7 @@ def test_customer_generates_own_content_without_customer_flag(env, capsys, monke
     env.responses(VALID_BY_TYPE["resolution_steps"], VALID_BY_TYPE["clarifying_questions"])
     assert main.main(["generate", "--user", "maria", "--ticket", "T001", "--type", "all"]) == 0
     out = capsys.readouterr().out
-    assert "=== Passo a passo · T001 · Maria · v2 ===" in out
+    assert "=== Passo a passo · T001 · Maria · v3 ===" in out
     assert "=== Perguntas de esclarecimento" in out
     assert "Diagnóstico" not in out and "Fluxograma" not in out
 
@@ -423,3 +423,29 @@ def test_customer_interactive_menu_offers_only_allowed_types(env, capsys, monkey
     out = capsys.readouterr().out
     assert "Escolha o cliente" not in out and "Escolha a versão" not in out
     assert "1) Passo a passo" in out and "Todos os 2 tipos" in out and "Diagnóstico" not in out
+
+
+# --- v3: ticket fora do escopo -----------------------------------------------
+
+
+def test_out_of_scope_ticket_is_refused_and_cached(env, capsys, monkeypatch):
+    from tests.fakes import OUT_OF_SCOPE_BY_TYPE, OUT_OF_SCOPE_MESSAGE
+
+    main.main(
+        ["ticket", "add", "--user", "atendente", "--customer", "C004", "--title", "Gato", "--description",
+         "Meu gato comeu pedra e eu não sei o que fazer."]
+    )  # fmt: skip
+    env.responses(
+        *(OUT_OF_SCOPE_BY_TYPE[t] for t in ("diagnosis", "resolution_steps", "clarifying_questions", "flow_summary"))
+    )
+    assert main.main(["generate", "--user", "atendente", "--ticket", "T007", "--type", "all"]) == 0
+    out = capsys.readouterr().out
+    assert out.count("Ticket fora do escopo do suporte:") == 4
+    assert OUT_OF_SCOPE_MESSAGE in out and "Passo 1" not in out
+
+    # A cliente recebe a mesma recusa, do cache, sem nova chamada à API.
+    monkeypatch.setattr(main, "_ask_password", lambda _prompt="": "renata-demo")
+    env.responses()
+    assert main.main(["generate", "--user", "renata", "--ticket", "T007", "--type", "resolution_steps"]) == 0
+    out = capsys.readouterr().out
+    assert OUT_OF_SCOPE_MESSAGE in out and "cache hit" in out

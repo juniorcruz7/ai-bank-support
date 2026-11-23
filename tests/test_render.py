@@ -114,3 +114,14 @@ def test_scores_table():
     assert lines[0].split() == ["Critério", "v1", "v2"]
     assert lines[3].split()[-2:] == ["1", "5"]  # Adequação ao cliente
     assert lines[-1].split() == ["Total", "5", "13"]
+
+
+def test_out_of_scope_render_shows_only_the_message():
+    from tests.fakes import OUT_OF_SCOPE_BY_TYPE, OUT_OF_SCOPE_MESSAGE
+
+    text = render_output(
+        "resolution_steps", ResolutionSteps.model_validate_json(OUT_OF_SCOPE_BY_TYPE["resolution_steps"])
+    )
+    assert text == f"Ticket fora do escopo do suporte:\n  {OUT_OF_SCOPE_MESSAGE}"
+    flow = render_output("flow_summary", FlowSummary.model_validate_json(OUT_OF_SCOPE_BY_TYPE["flow_summary"]))
+    assert flow.startswith("Ticket fora do escopo do suporte:") and "[n1]" not in flow

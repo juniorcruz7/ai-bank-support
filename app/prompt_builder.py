@@ -12,7 +12,7 @@ from app.models import Profile, Ticket
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 
 CONTENT_TYPES = ("diagnosis", "resolution_steps", "clarifying_questions", "flow_summary")
-DEFAULT_VERSION = "v2"  # usada pela conta de cliente, que não escolhe versão
+DEFAULT_VERSION = "v3"  # usada pela conta de cliente, que não escolhe versão
 BASE_TEMPLATES = ("system.md", "context.md")
 PROFILE_RULES_FILE = "profile_rules.json"
 RETRY_TEMPLATE = "retry.md"

@@ -86,3 +86,44 @@ def test_shared_subtree_is_not_a_cycle():
     FlowSummary.model_validate(
         _tree(_decision("n1", "n2", "n3"), _decision("n2", "n3", "n4"), _action("n3"), _action("n4"))
     )
+
+
+# --- ticket fora do escopo (out_of_scope, v3) -------------------------------
+
+OFF = "Seu pedido não parece ser sobre a conta ou os serviços do banco."
+
+
+@pytest.mark.parametrize(
+    ("model", "empty"),
+    [
+        (Diagnosis, {"hypotheses": [], "evidence": [], "missing_info": [], "likely_conclusion": ""}),
+        (ResolutionSteps, {"steps": [], "escalation_note": ""}),
+        (ClarifyingQuestions, {"questions": []}),
+        (FlowSummary, {"decision_tree": None}),
+    ],
+)
+def test_out_of_scope_accepts_empty_content(model, empty):
+    output = model.model_validate({"out_of_scope": f"  {OFF} ", **empty})
+    assert output.is_out_of_scope and output.out_of_scope == OFF
+
+
+def test_out_of_scope_discards_any_content_the_model_wrote():
+    output = ResolutionSteps.model_validate({**STEPS, "out_of_scope": OFF})
+    assert output.steps == [] and output.escalation_note == ""
+    flow = FlowSummary.model_validate({"out_of_scope": OFF, "decision_tree": {"nodes": []}})  # árvore inválida
+    assert flow.decision_tree is None
+
+
+@pytest.mark.parametrize("value", [None, "", "   "])
+def test_empty_out_of_scope_means_in_scope_and_content_is_required(value):
+    assert not Diagnosis.model_validate({**DIAGNOSIS, "out_of_scope": value}).is_out_of_scope
+    with pytest.raises(ValidationError, match="steps: lista vazia"):
+        ResolutionSteps.model_validate({"steps": [], "escalation_note": "x", "out_of_scope": value})
+    with pytest.raises(ValidationError, match="decision_tree: árvore ausente"):
+        FlowSummary.model_validate({"out_of_scope": value})
+
+
+def test_old_outputs_without_the_field_still_validate():
+    # Execuções gravadas antes da v3 (cache e samples) não têm o campo.
+    assert not QUESTIONS.get("out_of_scope")
+    assert not ClarifyingQuestions.model_validate(QUESTIONS).is_out_of_scope

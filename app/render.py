@@ -103,7 +103,13 @@ _RENDERERS = {
 }
 
 
+OUT_OF_SCOPE_LABEL = "Ticket fora do escopo do suporte"
+
+
 def render_output(content_type: str, output: BaseModel) -> str:
+    message = getattr(output, "out_of_scope", None)
+    if message:  # o modelo recusou o ticket: não há conteúdo para desenhar
+        return f"{OUT_OF_SCOPE_LABEL}:\n  {message}"
     return _RENDERERS[content_type](output)
 
 

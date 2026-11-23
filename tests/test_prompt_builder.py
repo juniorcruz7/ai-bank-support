@@ -45,10 +45,10 @@ def _ticket(ticket_id: str, customer_id: str, days_ago: int) -> Ticket:
 
 
 def test_versions_available():
-    assert list_versions() == ["v1", "v2"]
+    assert list_versions() == ["v1", "v2", "v3"]
 
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("version", ["v1", "v2", "v3"])
 @pytest.mark.parametrize("content_type", CONTENT_TYPES)
 def test_every_version_and_type_builds(version, content_type):
     prompt = _build(content_type=content_type, version=version)
@@ -166,3 +166,21 @@ def test_new_version_is_just_a_new_folder(tmp_path):
     prompt = _build(version="v3", prompts_dir=tmp_path)
     assert prompt.version == "v3"
     assert prompt.system == "Persona da v3."
+
+
+# --- v3: ticket fora do escopo ---------------------------------------------
+
+
+@pytest.mark.parametrize("content_type", CONTENT_TYPES)
+def test_only_v3_instructs_out_of_scope(content_type):
+    v2, v3 = _build(content_type=content_type, version="v2"), _build(content_type=content_type, version="v3")
+    assert "## Escopo" in v3.system and "## Escopo" not in v2.system
+    assert "out_of_scope" in v3.user and "out_of_scope" not in v2.user
+    assert v2.template_hash != v3.template_hash  # cache separado por versão
+
+
+def test_v3_changes_only_the_scope_rule():
+    # Uma hipótese por versão: fora a regra de escopo, a v3 é igual à v2.
+    v2, v3 = _build(version="v2"), _build(version="v3")
+    escopo = v3.system.split("## Escopo")[1].split("## Limites")[0]
+    assert v3.system.replace("## Escopo" + escopo, "") == v2.system

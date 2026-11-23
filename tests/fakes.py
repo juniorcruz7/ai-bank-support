@@ -104,3 +104,22 @@ def write_test_users(path) -> None:
 
 AGENT = make_user("atendente")
 MARIA = make_user("maria")
+
+
+OUT_OF_SCOPE_MESSAGE = "Seu pedido não parece ser sobre a conta ou os serviços do banco. Pode descrever o problema?"
+OUT_OF_SCOPE_BY_TYPE = {
+    "diagnosis": json.dumps(
+        {
+            "out_of_scope": "Ticket sobre a saúde de um animal, sem relação com o banco.",
+            "hypotheses": [],
+            "evidence": [],
+            "missing_info": [],
+            "likely_conclusion": "",
+        }
+    ),
+    "resolution_steps": json.dumps({"out_of_scope": OUT_OF_SCOPE_MESSAGE, "steps": [], "escalation_note": ""}),
+    "clarifying_questions": json.dumps({"out_of_scope": OUT_OF_SCOPE_MESSAGE, "questions": []}),
+    "flow_summary": json.dumps(
+        {"out_of_scope": "Ticket sobre a saúde de um animal, sem relação com o banco.", "decision_tree": None}
+    ),
+}

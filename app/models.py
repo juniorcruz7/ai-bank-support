@@ -1,6 +1,6 @@
 """Modelos Pydantic: Profile, Ticket, saídas por tipo e Evaluation."""
 
-from typing import Any, Literal
+from typing import Any, ClassVar, Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -96,9 +96,14 @@ class User(BaseModel):
 
 
 # --- Saídas do LLM -----------------------------------------------------------
-# O schema é só estrutural (vale igual para v1 e v2). Restrições de quantidade e
-# estilo ficam no prompt da v2. As checagens abaixo ficam em validadores, fora do
-# JSON schema enviado ao Gemini, para manter o schema simples e compatível.
+# O schema é só estrutural (vale igual para todas as versões). Restrições de quantidade
+# e estilo ficam no prompt. As checagens abaixo ficam em validadores, fora do JSON
+# schema enviado ao Gemini, para manter o schema simples e compatível.
+#
+# `out_of_scope`: o ticket não é um pedido de suporte do banco que dê para entender
+# (assunto sem relação com o banco, texto sem sentido). O campo existe no schema de
+# todas as versões, mas só o prompt da v3 instrui o modelo a usá-lo. Preenchido, ele
+# substitui o conteúdo: as listas ficam vazias e as regras de "ao menos 1 item" não valem.
 
 Probability = Literal["alta", "media", "baixa"]
 NodeType = Literal["decision", "action"]
@@ -116,10 +121,31 @@ def _non_empty_items(items: list[str]) -> list[str]:
     return [_non_empty(item) for item in items]
 
 
-def _at_least_one(items: list) -> list:
-    if not items:
-        raise ValueError("lista vazia; é preciso ao menos 1 item")
-    return items
+def _require(condition: bool, field: str, message: str = "lista vazia; é preciso ao menos 1 item") -> None:
+    if not condition:
+        raise ValueError(f"{field}: {message}")
+
+
+class ScopedOutput(BaseModel):
+    """Base das 4 saídas: permite recusar um ticket fora do escopo em vez de inventar conteúdo."""
+
+    out_of_scope: str | None = None
+    # Valores do conteúdo quando o ticket está fora do escopo (cada saída define os seus).
+    EMPTY_CONTENT: ClassVar[dict[str, Any]] = {}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _clear_content_when_out_of_scope(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        message = data.get("out_of_scope")
+        if isinstance(message, str) and message.strip():
+            return {**data, **cls.EMPTY_CONTENT, "out_of_scope": message.strip()}
+        return {**data, "out_of_scope": None}  # ausente, nulo ou vazio = ticket no escopo
+
+    @property
+    def is_out_of_scope(self) -> bool:
+        return self.out_of_scope is not None
 
 
 class Hypothesis(BaseModel):
@@ -129,7 +155,7 @@ class Hypothesis(BaseModel):
     _check_description = field_validator("description")(_non_empty)
 
 
-class Diagnosis(BaseModel):
+class Diagnosis(ScopedOutput):
     """RF04: hipóteses, evidências, dados faltantes e conclusão provável."""
 
     hypotheses: list[Hypothesis]
@@ -137,9 +163,21 @@ class Diagnosis(BaseModel):
     missing_info: list[str]
     likely_conclusion: str
 
-    _check_hypotheses = field_validator("hypotheses")(_at_least_one)
+    EMPTY_CONTENT: ClassVar[dict[str, Any]] = {
+        "hypotheses": [],
+        "evidence": [],
+        "missing_info": [],
+        "likely_conclusion": "",
+    }
     _check_lists = field_validator("evidence", "missing_info")(_non_empty_items)
-    _check_conclusion = field_validator("likely_conclusion")(_non_empty)
+
+    @model_validator(mode="after")
+    def _require_content(self) -> "Diagnosis":
+        if not self.is_out_of_scope:
+            _require(bool(self.hypotheses), "hypotheses")
+            self.likely_conclusion = self.likely_conclusion.strip()
+            _require(bool(self.likely_conclusion), "likely_conclusion", "texto vazio")
+        return self
 
 
 class Step(BaseModel):
@@ -158,14 +196,21 @@ class Step(BaseModel):
         return value
 
 
-class ResolutionSteps(BaseModel):
+class ResolutionSteps(ScopedOutput):
     """RF05: passo a passo para o cliente."""
 
     steps: list[Step]
     escalation_note: str
 
-    _check_steps = field_validator("steps")(_at_least_one)
-    _check_note = field_validator("escalation_note")(_non_empty)
+    EMPTY_CONTENT: ClassVar[dict[str, Any]] = {"steps": [], "escalation_note": ""}
+
+    @model_validator(mode="after")
+    def _require_content(self) -> "ResolutionSteps":
+        if not self.is_out_of_scope:
+            _require(bool(self.steps), "steps")
+            self.escalation_note = self.escalation_note.strip()
+            _require(bool(self.escalation_note), "escalation_note", "texto vazio")
+        return self
 
 
 class Question(BaseModel):
@@ -183,12 +228,18 @@ class Question(BaseModel):
         return value
 
 
-class ClarifyingQuestions(BaseModel):
+class ClarifyingQuestions(ScopedOutput):
     """RF06: perguntas de esclarecimento priorizadas."""
 
     questions: list[Question]
 
-    _check_questions = field_validator("questions")(_at_least_one)
+    EMPTY_CONTENT: ClassVar[dict[str, Any]] = {"questions": []}
+
+    @model_validator(mode="after")
+    def _require_content(self) -> "ClarifyingQuestions":
+        if not self.is_out_of_scope:
+            _require(bool(self.questions), "questions")
+        return self
 
 
 class FlowNode(BaseModel):
@@ -249,10 +300,18 @@ class DecisionTree(BaseModel):
         return self
 
 
-class FlowSummary(BaseModel):
+class FlowSummary(ScopedOutput):
     """RF07: árvore de decisão; o desenho em ASCII é feito pelo código."""
 
-    decision_tree: DecisionTree
+    decision_tree: DecisionTree | None = None
+
+    EMPTY_CONTENT: ClassVar[dict[str, Any]] = {"decision_tree": None}
+
+    @model_validator(mode="after")
+    def _require_content(self) -> "FlowSummary":
+        if not self.is_out_of_scope:
+            _require(self.decision_tree is not None, "decision_tree", "árvore ausente")
+        return self
 
 
 # --- Rubrica da comparação (RF12) ------------------------------------------

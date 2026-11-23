@@ -168,7 +168,7 @@ def test_history_lists_tickets_and_runs(env):
     at.sidebar.radio[0].set_value("Histórico do cliente").run()
     text = _texts(at)
     assert "Resolução: Limite noturno" in text
-    assert len(at.expander) == 1 and "Diagnóstico · v2 · gerado" in at.expander[0].label
+    assert len(at.expander) == 1 and "Diagnóstico · v3 · gerado" in at.expander[0].label
 
 
 # --- login e permissões (RF19–RF21) ------------------------------------------
@@ -220,7 +220,7 @@ def test_customer_gets_answer_without_technical_details(env):
     assert [h.value for h in at.subheader] == ["Passo a passo"]
     assert "JSON salvo em" not in _texts(at) and "tokens" not in _texts(at)
     saved = json.loads(next((env.root / "runs" / "C001" / "T001").glob("*.json")).read_text(encoding="utf-8"))
-    assert saved["prompt_version"] == "v2"
+    assert saved["prompt_version"] == "v3"  # versão padrão
 
 
 def test_customer_without_tickets_opens_first_ticket(env):
@@ -293,3 +293,19 @@ def test_environment_variable_wins_over_secrets(env, monkeypatch):
     at.secrets["GEMINI_API_KEY"] = "chave-dos-secrets"
     at.run()
     assert os.environ["GEMINI_API_KEY"] == "chave-do-ambiente"
+
+
+def test_customer_sees_out_of_scope_message(env):
+    from tests.fakes import OUT_OF_SCOPE_BY_TYPE, OUT_OF_SCOPE_MESSAGE
+
+    env.responses(OUT_OF_SCOPE_BY_TYPE["resolution_steps"], OUT_OF_SCOPE_BY_TYPE["clarifying_questions"])
+    at = _app("Tickets", user="renata")
+    at.text_input[0].input("Gato")
+    at.text_area[0].input("Meu gato comeu pedra e eu não sei o que fazer.")
+    at.main.button[0].click().run()
+    at.sidebar.radio[0].set_value("Gerar conteúdo").run()
+    at.main.button[0].click().run()
+
+    assert not at.error
+    assert [w.value for w in at.warning] == [OUT_OF_SCOPE_MESSAGE, OUT_OF_SCOPE_MESSAGE]
+    assert not any(m.value.startswith("**Passo") for m in at.markdown)

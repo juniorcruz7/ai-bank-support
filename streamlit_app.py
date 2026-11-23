@@ -129,6 +129,9 @@ def show_ticket(user: User, ticket: Ticket, tickets: list[Ticket]) -> None:
 
 
 def show_output(content_type: str, output) -> None:
+    if getattr(output, "out_of_scope", None):  # o modelo recusou o ticket (v3)
+        st.warning(output.out_of_scope)
+        return
     if content_type == "diagnosis":
         st.markdown("**Hipóteses**")
         for h in output.hypotheses:
