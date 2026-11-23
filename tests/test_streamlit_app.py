@@ -195,26 +195,76 @@ def test_logout(env):
     assert at.text_input[1].label == "Senha"
 
 
-def test_customer_sees_only_allowed_pages_and_types(env):
+def test_customer_sees_own_pages_without_customer_or_version_choice(env):
     at = _app("Gerar conteúdo", user="maria")
-    assert list(at.sidebar.radio[0].options) == ["Gerar conteúdo", "Histórico do cliente", "Tickets"]
-    assert [o.split(" ")[0] for o in at.selectbox(key="gen_customer").options] == ["C001"]
-    assert [t.split(" ")[0] for t in at.selectbox(key="gen_ticket").options] == ["T001", "T005"]
+    assert list(at.sidebar.radio[0].options) == ["Ajuda com um ticket", "Meu histórico", "Abrir ticket"]
+    assert at.header[0].value == "Ajuda com um ticket"
+    assert [s.label for s in at.selectbox] == ["Ticket"]  # sem seletor de cliente nem de versão
+    # O cliente vê a numeração da conta dele, mais recente primeiro (T001 é o 2º ticket da Maria).
+    assert list(at.selectbox(key="gen_ticket").options) == [
+        "nº 2 [aberto] Pix não chegou",
+        "nº 1 [resolvido] Erro ao fazer Pix à noite",
+    ]
+    assert at.expander[0].label == "Ticket nº 2: Pix não chegou"
     assert at.multiselect[0].value == ["resolution_steps", "clarifying_questions"]
-    assert not any(s.label == "Versão do prompt" for s in at.selectbox)
+    assert "Histórico usado como contexto" not in _texts(at)
 
 
-def test_customer_generates_with_default_version(env):
+def test_customer_gets_answer_without_technical_details(env):
     env.responses(VALID_BY_TYPE["resolution_steps"])
     at = _app("Gerar conteúdo", user="maria")
     at.multiselect[0].set_value(["resolution_steps"]).run()
     at.main.button[0].click().run()
+
     assert not at.error
-    assert any("Passo a passo · v2" in h.value for h in at.subheader)
+    assert [h.value for h in at.subheader] == ["Passo a passo"]
+    assert "JSON salvo em" not in _texts(at) and "tokens" not in _texts(at)
+    saved = json.loads(next((env.root / "runs" / "C001" / "T001").glob("*.json")).read_text(encoding="utf-8"))
+    assert saved["prompt_version"] == "v2"
 
 
-def test_customer_tickets_page_has_no_close_form(env):
-    at = _app("Tickets", user="maria")
-    assert [o.split(" ")[0] for o in at.selectbox(key="new_customer").options] == ["C001"]
-    assert len(at.main.button) == 1  # só "Abrir ticket"
-    assert not any("Fechar" in s.value for s in at.subheader)
+def test_customer_without_tickets_opens_first_ticket(env):
+    # Regressão: com só o próprio perfil carregado, gravar validava o tickets.json inteiro
+    # e falhava em "Ticket 'T001' aponta para cliente inexistente".
+    at = _app("Gerar conteúdo", user="renata")
+    assert "Você ainda não tem tickets" in at.info[0].value
+
+    at.sidebar.radio[0].set_value("Tickets").run()
+    assert at.header[0].value == "Abrir ticket"
+    assert not at.selectbox  # sem seletor de cliente
+    assert len(at.main.button) == 1  # sem o formulário de fechar ticket
+    at.text_input[0].input("Boleto não compensou")
+    at.text_area[0].input("Paguei um boleto anteontem e não compensou.")
+    at.main.button[0].click().run()
+
+    assert not at.error
+    assert "Ticket nº 1 aberto" in at.success[0].value
+    assert env.tickets()[-1]["id"] == "T007"  # o ID interno continua global (RF17)
+    assert env.tickets()[-1]["customer_id"] == "C004"
+
+    at.sidebar.radio[0].set_value("Gerar conteúdo").run()
+    assert list(at.selectbox(key="gen_ticket").options) == ["nº 1 [aberto] Boleto não compensou"]
+
+
+def test_customer_history_shows_answers_not_run_records(env):
+    env.responses(VALID_BY_TYPE["resolution_steps"])
+    at = _app("Gerar conteúdo", user="maria")
+    at.multiselect[0].set_value(["resolution_steps"]).run()
+    at.main.button[0].click().run()
+
+    at.sidebar.radio[0].set_value("Histórico do cliente").run()
+    assert at.header[0].value == "Meu histórico"
+    assert "Respostas recebidas (1)" in [s.value for s in at.subheader]
+    assert "Ticket nº 2 · Passo a passo" in at.expander[0].label
+    assert "**nº 2**" in _texts(at) and "T001" not in _texts(at)
+    assert not at.json  # nada do registro técnico da execução
+
+
+def test_login_page_lists_demo_accounts(env):
+    at = AppTest.from_file(APP_PATH, default_timeout=30).run()
+    assert [t.label for t in at.tabs] == ["Entrar", "Contas de demonstração"]
+    table = at.dataframe[0].value
+    assert list(table["Usuário"]) == ["atendente", "maria", "lucas", "carlos", "renata", "ana"]
+    assert table["Senha"][1] == "maria-demo"
+    assert table["Conta"][1].startswith("Cliente C001 · Maria")
+    assert table["Conta"][0] == "Atendente (todos os clientes)"

@@ -12,7 +12,7 @@ from app import auth, runtime, storage
 from app.auth import AccessDeniedError, AuthError
 from app.compare import COMPARISON_TEMPERATURE, DEFAULT_VERSIONS, CompareError, run_comparison, save_evaluations
 from app.config import ConfigError
-from app.generators import OutputValidationError
+from app.generators import OUTPUT_MODELS, OutputValidationError
 from app.llm_client import LLMError
 from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket, User
 from app.prompt_builder import (
@@ -27,10 +27,10 @@ from app.render import CONTENT_LABELS, render_decision_tree
 from app.service import (
     RunResult,
     customer_history,
+    customer_ticket_numbers,
     open_ticket,
     resolve_ticket,
     run_content,
-    visible_profiles,
     visible_tickets,
 )
 
@@ -46,6 +46,12 @@ USER_ERRORS = (
 PROBABILITY_LABELS = {"alta": "🔴 alta", "media": "🟡 média", "baixa": "🟢 baixa"}
 AGENT_PAGES = ("Gerar conteúdo", "Comparar versões", "Histórico do cliente", "Tickets")
 CUSTOMER_PAGES = ("Gerar conteúdo", "Histórico do cliente", "Tickets")
+# Nomes que a conta de cliente vê no menu (as chaves continuam as mesmas).
+CUSTOMER_PAGE_LABELS = {
+    "Gerar conteúdo": "Ajuda com um ticket",
+    "Histórico do cliente": "Meu histórico",
+    "Tickets": "Abrir ticket",
+}
 
 
 # --- dados -------------------------------------------------------------------
@@ -61,23 +67,40 @@ def profile_label(p: Profile) -> str:
     return f"{p.id} · {p.name} ({p.technical_level}, {p.communication_style}, {p.channel})"
 
 
-def ticket_label(t: Ticket) -> str:
-    return f"{t.id} [{t.status}] {t.title}"
+def ticket_name(user: User, ticket_id: str, tickets: list[Ticket]) -> str:
+    """Atendente vê o ID interno; o cliente vê o número do ticket na conta dele (nº 1, nº 2…)."""
+    if auth.is_agent(user):
+        return ticket_id
+    return f"nº {customer_ticket_numbers(tickets, user.customer_id)[ticket_id]}"
 
 
-def pick_customer(profiles: dict[str, Profile], key: str) -> Profile:
-    """`profiles` já vem filtrado pela conta: para cliente, só o próprio perfil."""
+def ticket_label(user: User, t: Ticket, tickets: list[Ticket]) -> str:
+    return f"{ticket_name(user, t.id, tickets)} [{t.status}] {t.title}"
+
+
+def pick_customer(user: User, profiles: dict[str, Profile], key: str) -> Profile:
+    """Atendente escolhe o cliente; a conta de cliente usa o próprio perfil, sem seletor."""
+    if not auth.is_agent(user):
+        return profiles[user.customer_id]
     customer_id = st.selectbox("Cliente", list(profiles), format_func=lambda c: profile_label(profiles[c]), key=key)
     return profiles[customer_id]
 
 
-def pick_ticket(tickets: list[Ticket], profile: Profile, key: str) -> Ticket | None:
+def pick_ticket(user: User, tickets: list[Ticket], profile: Profile, key: str) -> Ticket | None:
     own = [t for t in tickets if t.customer_id == profile.id]
     if not own:
-        st.info(f"{profile.name} não tem tickets. Abra um na página Tickets.")
+        if auth.is_agent(user):
+            st.info(f"{profile.name} não tem tickets. Abra um na página Tickets.")
+        else:
+            st.info("Você ainda não tem tickets. Abra um em “Abrir ticket”, no menu ao lado.")
         return None
+    if not auth.is_agent(user):  # mais recente primeiro: nº 3, nº 2, nº 1
+        numbers = customer_ticket_numbers(tickets, profile.id)
+        own.sort(key=lambda t: numbers[t.id], reverse=True)
     by_id = {t.id: t for t in own}
-    ticket_id = st.selectbox("Ticket", list(by_id), format_func=lambda t: ticket_label(by_id[t]), key=key)
+    ticket_id = st.selectbox(
+        "Ticket", list(by_id), format_func=lambda t: ticket_label(user, by_id[t], tickets), key=key
+    )
     return by_id[ticket_id]
 
 
@@ -88,14 +111,14 @@ def display_path(path) -> str:
         return str(path)
 
 
-def show_ticket(ticket: Ticket, tickets: list[Ticket]) -> None:
-    with st.expander(f"Ticket {ticket.id}: {ticket.title}", expanded=True):
+def show_ticket(user: User, ticket: Ticket, tickets: list[Ticket]) -> None:
+    with st.expander(f"Ticket {ticket_name(user, ticket.id, tickets)}: {ticket.title}", expanded=True):
         st.write(ticket.description)
         st.caption(f"Aberto em {ticket.created_at:%d/%m/%Y %H:%M} · status: {ticket.status}")
         if ticket.resolution:
             st.caption(f"Resolução: {ticket.resolution}")
         history = get_customer_history(tickets, ticket)
-        if history:
+        if history and auth.is_agent(user):
             st.caption("Histórico usado como contexto: " + ", ".join(f"{t.id} ({t.status})" for t in history))
 
 
@@ -126,9 +149,11 @@ def show_output(content_type: str, output) -> None:
         st.code(render_decision_tree(output.decision_tree), language=None)
 
 
-def show_result(result: RunResult) -> None:
+def show_result(result: RunResult, user: User) -> None:
     run = result.run
     show_output(run.content_type, result.output)
+    if not auth.is_agent(user):  # detalhes técnicos da execução são do atendente
+        return
     status = "cache hit, sem chamada à API" if run.cache_hit else "gerado agora"
     details = f"JSON salvo em `{display_path(result.path)}` ({status})"
     if run.usage:
@@ -140,27 +165,31 @@ def show_result(result: RunResult) -> None:
 
 
 def page_generate(user: User, profiles: dict[str, Profile], tickets: list[Ticket]) -> None:
-    st.header("Gerar conteúdo")
-    profile = pick_customer(profiles, "gen_customer")
-    ticket = pick_ticket(tickets, profile, "gen_ticket")
+    agent = auth.is_agent(user)
+    st.header("Gerar conteúdo" if agent else "Ajuda com um ticket")
+    if not agent:
+        st.caption("Escolha um dos seus tickets para receber o passo a passo e as perguntas que ajudam a resolvê-lo.")
+    profile = pick_customer(user, profiles, "gen_customer")
+    ticket = pick_ticket(user, tickets, profile, "gen_ticket")
     if ticket is None:
         return
-    show_ticket(ticket, tickets)
+    show_ticket(user, ticket, tickets)
 
     allowed = list(auth.allowed_content_types(user))
     col_types, col_version = st.columns([3, 1])
-    types = col_types.multiselect("Tipos de conteúdo", allowed, default=allowed, format_func=CONTENT_LABELS.get)
+    types_label = "Tipos de conteúdo" if agent else "O que você quer receber"
+    types = col_types.multiselect(types_label, allowed, default=allowed, format_func=CONTENT_LABELS.get)
     version = DEFAULT_VERSION
     if auth.is_agent(user):  # cliente usa a versão padrão
         versions = list_versions(PROMPTS_DIR)
         index = versions.index(DEFAULT_VERSION) if DEFAULT_VERSION in versions else 0
         version = col_version.selectbox("Versão do prompt", versions, index=index)
-    if not st.button("Gerar", type="primary", disabled=not types):
+    if not st.button("Gerar" if agent else "Pedir ajuda", type="primary", disabled=not types):
         return
 
     client = runtime.make_client()
     for content_type in types:
-        st.subheader(f"{CONTENT_LABELS[content_type]} · {version}")
+        st.subheader(f"{CONTENT_LABELS[content_type]} · {version}" if agent else CONTENT_LABELS[content_type])
         try:
             with st.spinner(f"Gerando {CONTENT_LABELS[content_type].lower()}…"):
                 result = run_content(
@@ -177,17 +206,17 @@ def page_generate(user: User, profiles: dict[str, Profile], tickets: list[Ticket
         except (LLMError, OutputValidationError) as exc:
             st.error(f"Erro: {exc}")
             continue
-        show_result(result)
+        show_result(result, user)
 
 
 def page_compare(user: User, profiles: dict[str, Profile], tickets: list[Ticket]) -> None:
     st.header("Comparar versões")
     st.caption(f"Mesmo cenário em cada versão, temperatura fixa em {COMPARISON_TEMPERATURE}; muda só o template.")
-    profile = pick_customer(profiles, "cmp_customer")
-    ticket = pick_ticket(tickets, profile, "cmp_ticket")
+    profile = pick_customer(user, profiles, "cmp_customer")
+    ticket = pick_ticket(user, tickets, profile, "cmp_ticket")
     if ticket is None:
         return
-    show_ticket(ticket, tickets)
+    show_ticket(user, ticket, tickets)
 
     available = list_versions(PROMPTS_DIR)
     col_type, col_versions = st.columns(2)
@@ -225,7 +254,7 @@ def page_compare(user: User, profiles: dict[str, Profile], tickets: list[Ticket]
     for column, result in zip(st.columns(len(comparison.results)), comparison.results, strict=True):
         with column:
             st.markdown(f"#### {result.run.prompt_version}")
-            show_result(result)
+            show_result(result, user)
 
     if "evaluations" in st.session_state:
         show_scores(st.session_state.evaluations)
@@ -266,15 +295,20 @@ def show_scores(evaluations) -> None:
 
 def page_history(user: User, profiles: dict[str, Profile], tickets: list[Ticket]) -> None:
     st.header("Histórico do cliente" if auth.is_agent(user) else "Meu histórico")
-    profile = pick_customer(profiles, "hist_customer")
+    profile = pick_customer(user, profiles, "hist_customer")
     own, runs = customer_history(user, profile.id, tickets, storage.RUNS_DIR)
     own.sort(key=lambda t: t.created_at, reverse=True)
 
-    st.subheader(f"Tickets ({len(own)})")
+    st.subheader(f"Tickets ({len(own)})" if auth.is_agent(user) else f"Meus tickets ({len(own)})")
     for t in own:
-        st.markdown(f"**{t.id}** · {t.created_at:%d/%m/%Y %H:%M} · `{t.status}` · {t.title}")
+        name = ticket_name(user, t.id, tickets)
+        st.markdown(f"**{name}** · {t.created_at:%d/%m/%Y %H:%M} · `{t.status}` · {t.title}")
         if t.resolution:
             st.caption(f"Resolução: {t.resolution}")
+
+    if not auth.is_agent(user):
+        show_customer_answers(user, runs, tickets)
+        return
 
     st.subheader(f"Execuções ({len(runs)})")
     if not runs:
@@ -291,19 +325,37 @@ def page_history(user: User, profiles: dict[str, Profile], tickets: list[Ticket]
             st.json(run.model_dump(mode="json"), expanded=False)
 
 
+def show_customer_answers(user: User, runs, tickets: list[Ticket]) -> None:
+    """Respostas já recebidas pelo cliente, no mesmo formato da tela de ajuda (sem dados técnicos)."""
+    st.subheader(f"Respostas recebidas ({len(runs)})")
+    if not runs:
+        st.caption("Você ainda não pediu ajuda para nenhum ticket.")
+    for _, run in reversed(runs):
+        name = ticket_name(user, run.ticket.id, tickets)
+        with st.expander(f"{run.timestamp:%d/%m/%Y %H:%M} · Ticket {name} · {CONTENT_LABELS[run.content_type]}"):
+            show_output(run.content_type, OUTPUT_MODELS[run.content_type].model_validate(run.output))
+
+
 def page_tickets(user: User, profiles: dict[str, Profile], tickets: list[Ticket]) -> None:
-    st.header("Tickets")
+    agent = auth.is_agent(user)
+    st.header("Tickets" if agent else "Abrir ticket")
     if message := st.session_state.pop("ticket_message", None):
         st.success(message)
 
-    st.subheader("Abrir ticket")
+    if agent:
+        st.subheader("Abrir ticket")
     with st.form("new_ticket", clear_on_submit=True):
-        profile = pick_customer(profiles, "new_customer")
+        profile = pick_customer(user, profiles, "new_customer")
         title = st.text_input("Título")
-        description = st.text_area("Descrição (como o cliente escreveu)")
+        description = st.text_area("Descrição (como o cliente escreveu)" if agent else "Descreva o problema")
         if st.form_submit_button("Abrir ticket"):
             ticket = open_ticket(user, profiles, profile.id, title, description, path=storage.TICKETS_PATH)
-            st.session_state.ticket_message = f"Ticket {ticket.id} criado para {profile.id} · {profile.name}."
+            st.session_state.ticket_message = (
+                f"Ticket {ticket.id} criado para {profile.id} · {profile.name}."
+                if agent
+                else f"Ticket {ticket_name(user, ticket.id, [*tickets, ticket])} aberto. "
+                "Você já pode pedir ajuda com ele em “Ajuda com um ticket”."
+            )
             st.rerun()
 
     if not auth.is_agent(user):
@@ -337,23 +389,48 @@ PAGE_HANDLERS = {
 }
 
 
+def show_demo_accounts(profiles: dict[str, Profile], users: dict[str, User]) -> None:
+    st.caption(
+        "Senhas fictícias, só para a demonstração (o arquivo de contas guarda apenas o hash). "
+        "O atendente vê tudo; cada cliente vê só os próprios tickets e recebe passo a passo e perguntas."
+    )
+    rows = []
+    for username, password in auth.DEMO_ACCOUNTS:
+        user = users.get(username)
+        if user is None:  # conta removida do users.json: não oferece credencial que não funciona
+            continue
+        if auth.is_agent(user):
+            account = "Atendente (todos os clientes)"
+        else:
+            p = profiles[user.customer_id]
+            account = f"Cliente {p.id} · {p.name} ({p.technical_level}, {p.channel})"
+        rows.append({"Usuário": username, "Senha": password, "Conta": account})
+    st.dataframe(rows, hide_index=True)
+
+
 def page_login() -> None:
     st.title("Assistente de suporte")
-    st.caption("Entre com uma conta de cliente ou de atendente (contas de demonstração no README).")
-    with st.form("login"):
-        username = st.text_input("Usuário")
-        password = st.text_input("Senha", type="password")
-        if not st.form_submit_button("Entrar", type="primary"):
-            return
+    st.caption("Entre com uma conta de cliente ou de atendente. As contas de teste estão na aba ao lado.")
     try:
         profiles = storage.load_profiles(storage.PROFILES_PATH)
         users = storage.load_users(profiles, storage.USERS_PATH)
-        st.session_state.user = auth.authenticate(users, username, password)
-    except AuthError as exc:
-        st.error(str(exc))
-        return
     except storage.DataError as exc:
         st.error(f"Erro: {exc}")
+        return
+
+    tab_login, tab_demo = st.tabs(["Entrar", "Contas de demonstração"])
+    with tab_demo:
+        show_demo_accounts(profiles, users)
+    with tab_login, st.form("login"):
+        username = st.text_input("Usuário")
+        password = st.text_input("Senha", type="password")
+        submitted = st.form_submit_button("Entrar", type="primary")
+    if not submitted:
+        return
+    try:
+        st.session_state.user = auth.authenticate(users, username, password)
+    except AuthError as exc:
+        tab_login.error(str(exc))
         return
     st.rerun()
 
@@ -376,14 +453,18 @@ def main() -> None:
         st.session_state.clear()
         st.rerun()
     pages = AGENT_PAGES if auth.is_agent(user) else CUSTOMER_PAGES
-    page = st.sidebar.radio("Página", pages, label_visibility="collapsed")
+    labels = {} if auth.is_agent(user) else CUSTOMER_PAGE_LABELS
+    page = st.sidebar.radio("Página", pages, label_visibility="collapsed", format_func=lambda p: labels.get(p, p))
     if page != "Comparar versões":
         st.session_state.pop("comparison", None)
         st.session_state.pop("evaluations", None)
 
     try:
         profiles, tickets = load_data()
-        PAGE_HANDLERS[page](user, visible_profiles(user, profiles), visible_tickets(user, tickets))
+        # Todos os perfis vão para o núcleo: gravar um ticket valida o tickets.json inteiro, e
+        # cada ticket precisa apontar para um cliente existente. O que a conta vê é filtrado
+        # na seleção (pick_customer) e nas checagens do serviço.
+        PAGE_HANDLERS[page](user, profiles, visible_tickets(user, tickets))
     except USER_ERRORS as exc:
         st.error(f"Erro: {exc}")
 

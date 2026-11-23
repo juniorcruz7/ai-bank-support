@@ -154,3 +154,14 @@ def customer_history(
         allowed = auth.allowed_content_types(user)
         runs = [(p, r.model_copy(update={"evaluation": None})) for p, r in runs if r.content_type in allowed]
     return own, runs
+
+
+def customer_ticket_numbers(tickets: list[Ticket], customer_id: str) -> dict[str, int]:
+    """Número de cada ticket na conta do cliente (1, 2, 3…), por ordem de abertura.
+
+    É só para exibição ao cliente: o ID interno (T001, T007…) continua global e sequencial
+    (RF17). Como tickets nunca são apagados e um novo sempre é o mais recente, o número
+    de um ticket não muda.
+    """
+    own = sorted((t for t in tickets if t.customer_id == customer_id), key=lambda t: (t.created_at, t.id))
+    return {t.id: number for number, t in enumerate(own, 1)}

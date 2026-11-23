@@ -9,7 +9,7 @@ import pytest
 from app.generators import OutputValidationError
 from app.models import Diagnosis, Run
 from app.prompt_builder import PROMPTS_DIR
-from app.service import run_content
+from app.service import customer_ticket_numbers, run_content
 from app.storage import load_profiles, load_tickets
 from tests.fakes import AGENT, VALID_DIAGNOSIS, FakeClient
 
@@ -109,3 +109,9 @@ def test_failed_generation_saves_nothing(tmp_path):
     with pytest.raises(OutputValidationError):
         _run(FakeClient("{}", "{}"), tmp_path)
     assert _run_files(tmp_path) == []
+
+
+def test_customer_ticket_numbers_follow_opening_order():
+    # T005 (out/2026) é o 1º ticket da Maria e T001 (nov/2026) o 2º, mesmo com ID global menor.
+    assert customer_ticket_numbers(TICKETS, "C001") == {"T005": 1, "T001": 2}
+    assert customer_ticket_numbers(TICKETS, "C004") == {}

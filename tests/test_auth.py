@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from app.auth import AuthError, authenticate, hash_password, verify_password
+from app.auth import DEMO_ACCOUNTS, AuthError, authenticate, hash_password, verify_password
 from app.storage import DataError, load_profiles, load_users
 from tests.fakes import TEST_ACCOUNTS, make_user
 
@@ -60,9 +60,10 @@ def test_real_users_file_has_demo_accounts():
     assert {u.role for u in users.values()} == {"customer", "agent"}
     assert {u.customer_id for u in users.values() if u.role == "customer"} == set(PROFILES)
     assert all(u.password_hash.startswith("pbkdf2_sha256$600000$") for u in users.values())
-    # Senhas de demonstração documentadas no README.
-    assert authenticate(users, "atendente", "atendente-demo").role == "agent"
-    assert authenticate(users, "maria", "maria-demo").customer_id == "C001"
+    # As senhas mostradas na tela de login (e no README) funcionam com as contas versionadas.
+    assert {username for username, _ in DEMO_ACCOUNTS} == set(users)
+    for username, password in DEMO_ACCOUNTS:
+        assert authenticate(users, username, password).username == username
 
 
 def _write_users(tmp_path, accounts):

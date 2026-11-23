@@ -21,6 +21,17 @@ SALT_BYTES = 16
 CUSTOMER_CONTENT_TYPES = ("resolution_steps", "clarifying_questions")
 LOGIN_FAILED = "Usuário ou senha inválidos."
 
+# Credenciais fictícias mostradas na tela de login da web.
+# Um teste garante que batem com data/users.json.
+DEMO_ACCOUNTS = (
+    ("atendente", "atendente-demo"),
+    ("maria", "maria-demo"),
+    ("lucas", "lucas-demo"),
+    ("carlos", "carlos-demo"),
+    ("renata", "renata-demo"),
+    ("ana", "ana-demo"),
+)
+
 
 class AuthError(Exception):
     """Login recusado; a mensagem não diz se o erro foi no usuário ou na senha."""
