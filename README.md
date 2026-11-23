@@ -11,6 +11,8 @@ Assistente de suporte para um banco digital fictício, construído com **engenha
 
 A estratégia de prompt, a comparação entre versões e as limitações estão em [PROMPT_ENGINEERING_NOTES.md](PROMPT_ENGINEERING_NOTES.md).
 
+**Demonstração online:** https://ai-bank-support.streamlit.app (interface web; as contas de teste estão na própria tela de login). Os dados da demonstração são compartilhados entre visitantes e voltam aos de exemplo quando o app reinicia; detalhes em [Deploy](#deploy-streamlit-community-cloud).
+
 ## Setup do zero
 
 Requisitos: **Python 3.11+** e uma chave da API do Gemini (gratuita em [Google AI Studio](https://aistudio.google.com/apikey)).
@@ -203,7 +205,7 @@ Os secrets podem ser trocados depois em **Settings → Secrets**, sem novo deplo
 
 **Como o app se comporta na nuvem**
 
-- **Os dados não são persistentes.** Tickets abertos, tickets fechados e execuções em `runs/` são gravados no disco do servidor, que não é garantido entre reinícios. A cada novo deploy ou reinício, o app volta aos dados de exemplo do repositório. A persistência de verdade fica para a fase de banco de dados.
+- **Os dados não são persistentes.** Tickets abertos, tickets fechados e execuções em `runs/` são gravados no disco do servidor, que não é garantido entre reinícios. A cada novo deploy ou reinício, o app volta aos dados de exemplo do repositório. Persistir entre reinícios exigiria um banco de dados hospedado fora da plataforma, que ficou fora do escopo: o desafio pede o histórico em JSON, e é o que o projeto usa.
 - **Os dados são compartilhados.** Todos os visitantes usam o mesmo `tickets.json`: um ticket aberto ou fechado por alguém aparece para todos. Para restaurar os dados de exemplo, reinicie o app em **Manage app → Reboot app**.
 - **O app dorme** depois de 12 horas sem acesso e acorda na próxima visita, que demora um pouco mais.
 
@@ -297,7 +299,7 @@ ruff format --check .
 - O ticket não registra quem o abriu nem por qual canal: um ticket aberto pelo atendente em nome do cliente é igual a um aberto pelo próprio cliente. Foi uma escolha para manter o modelo de dados simples; num produto real, esse registro seria necessário para auditoria.
 - O cliente não confirma a solução nem reabre um ticket: o fechamento é decisão do atendente.
 - A avaliação da rubrica é manual e feita sobre poucos cenários.
-- Mais detalhes e próximos passos em [PROMPT_ENGINEERING_NOTES.md](PROMPT_ENGINEERING_NOTES.md#limitações-e-próximos-passos).
+- Mais detalhes e próximos passos em [PROMPT_ENGINEERING_NOTES.md](PROMPT_ENGINEERING_NOTES.md#5-limitações-e-próximos-passos).
 
 ## Ferramentas utilizadas
 

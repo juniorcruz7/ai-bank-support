@@ -68,7 +68,7 @@ Para a comparação ser justa, tudo é igual entre as versões: perfil, ticket, 
 
 ### Rubrica
 
-Cenário: **T001 + C001** (Maria: leiga, didática, telefone), tipo `resolution_steps`, comando `python main.py compare --customer C001 --ticket T001 --type resolution_steps`. As execuções avaliadas estão em [samples/06](samples/06_compare_resolution_steps_v1_rubric.json) e [samples/07](samples/07_compare_resolution_steps_v2_rubric.json) (mesmo `comparison_id`). A saída da v2 veio do cache: é a mesma geração de uma execução anterior com entrada e configuração idênticas.
+Cenário: **T001 + C001** (Maria: leiga, didática, telefone), tipo `resolution_steps`, comando `python main.py compare --user atendente --customer C001 --ticket T001 --type resolution_steps`. As execuções avaliadas estão em [samples/06](samples/06_compare_resolution_steps_v1_rubric.json) e [samples/07](samples/07_compare_resolution_steps_v2_rubric.json) (mesmo `comparison_id`). A saída da v2 veio do cache: é a mesma geração de uma execução anterior com entrada e configuração idênticas.
 
 | Critério | v1 | v2 |
 | --- | --- | --- |
@@ -131,7 +131,8 @@ São regras escritas no prompt que o modelo nem sempre segue, o que motiva os pr
 | 1 retry com o erro de validação no prompt (`retry.md`) | O modelo recebe o motivo exato da falha; se falhar de novo, erro claro e nada é gravado |
 | Pensamento do modelo desligado (`thinking_budget=0`) | Saída mais previsível, menor custo, e nenhum raciocínio interno guardado; a decomposição do diagnóstico já está no prompt |
 | Temperatura 0.2 (fixa na comparação) | Reprodutibilidade; diferenças entre v1 e v2 vêm do template, não do acaso |
-| `max_tokens` 2048 | As respostas reais usaram de 176 a 696 tokens; resposta cortada gera erro explícito |
+| `max_tokens` 2048 | As respostas reais usaram de 176 a 696 tokens; resposta cortada gera erro explícito e nada é gravado. Num teste posterior, o passo a passo de um ticket novo ("a maquininha não conecta desde ontem", cliente C003) foi cortado nesse limite; a causa (resposta longa ou repetição do modelo) ainda não foi investigada |
+| Ticket repetido e aberto fica fora do histórico | Se o cliente abre um segundo ticket com o mesmo texto de um anterior ainda aberto, o anterior não entra no `<historico_cliente>`: é a mesma reclamação, não acrescenta informação, e o prompt fica idêntico ao do primeiro ticket, então a resposta sai do cache. Se o anterior já foi resolvido, ele entra, porque a resolução é informação nova |
 | API `v1beta` do Gemini | A `v1` (padrão do SDK) recusa *system instruction*, que é a camada de persona |
 | Hash dos templates na chave de cache | Editar um template invalida só o cache que depende dele |
 
