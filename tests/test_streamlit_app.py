@@ -268,3 +268,28 @@ def test_login_page_lists_demo_accounts(env):
     assert table["Senha"][1] == "maria-demo"
     assert table["Conta"][1].startswith("Cliente C001 · Maria")
     assert table["Conta"][0] == "Atendente (todos os clientes)"
+
+
+# --- secrets do Streamlit Community Cloud ------------------------------------
+
+
+def test_cloud_secrets_become_environment_variables(env, monkeypatch):
+    import os
+
+    # setenv + delenv: o monkeypatch apaga de novo a variável que o app criar.
+    monkeypatch.setenv("GEMINI_API_KEY", "x")
+    monkeypatch.delenv("GEMINI_API_KEY")
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
+    at.secrets["GEMINI_API_KEY"] = "chave-dos-secrets"
+    at.run()
+    assert os.environ["GEMINI_API_KEY"] == "chave-dos-secrets"
+
+
+def test_environment_variable_wins_over_secrets(env, monkeypatch):
+    import os
+
+    monkeypatch.setenv("GEMINI_API_KEY", "chave-do-ambiente")
+    at = AppTest.from_file(APP_PATH, default_timeout=30)
+    at.secrets["GEMINI_API_KEY"] = "chave-dos-secrets"
+    at.run()
+    assert os.environ["GEMINI_API_KEY"] == "chave-do-ambiente"

@@ -3,6 +3,7 @@
 
 # Segredos
 .env
+.streamlit/secrets.toml
 
 # Histórico de execuções (gerado em tempo de execução)
 runs/

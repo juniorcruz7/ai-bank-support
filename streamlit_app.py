@@ -6,7 +6,10 @@ para a tela não oferecer o que a conta não pode fazer.
 Rodar: streamlit run streamlit_app.py
 """
 
+import os
+
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 
 from app import auth, runtime, storage
 from app.auth import AccessDeniedError, AuthError
@@ -435,8 +438,26 @@ def page_login() -> None:
     st.rerun()
 
 
+SECRET_KEYS = ("GEMINI_API_KEY", "GEMINI_MODEL", "GEMINI_TEMPERATURE", "GEMINI_MAX_TOKENS")
+
+
+def load_cloud_secrets() -> None:
+    """Copia os secrets do Streamlit (Cloud ou .streamlit/secrets.toml) para o ambiente.
+
+    O núcleo lê a configuração só do ambiente/.env (app/config.py), sem depender do Streamlit.
+    Variável já definida no ambiente tem prioridade; sem arquivo de secrets, nada muda.
+    """
+    try:
+        secrets = {key: st.secrets[key] for key in SECRET_KEYS if key in st.secrets}
+    except (StreamlitSecretNotFoundError, FileNotFoundError):
+        return
+    for key, value in secrets.items():
+        os.environ.setdefault(key, str(value))
+
+
 def main() -> None:
     st.set_page_config(page_title="Suporte · Banco Digital", page_icon="💬", layout="wide")
+    load_cloud_secrets()
     if not st.session_state.get("logging_ready"):
         runtime.setup_logging()
         st.session_state.logging_ready = True
