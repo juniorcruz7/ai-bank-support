@@ -256,6 +256,8 @@ INFO app.service: LLM ok: T001 resolution_steps v2 em 2959 ms, tokens entrada/sa
 INFO app.service: cache hit: T001 resolution_steps v2 (chave eab1dc219df0)
 ```
 
+**Tickets repetidos.** A chave não inclui o ID do ticket, e a busca no cache olha todos os tickets do mesmo cliente. Se um cliente abre um segundo ticket com o mesmo texto de um anterior ainda aberto, o ticket anterior fica fora do histórico, porque é a mesma reclamação repetida e não acrescenta informação. A chave fica igual e a resposta já gerada é reaproveitada sem chamar a API; a execução é gravada na pasta do ticket novo, com `cache_hit: true`. Se o ticket anterior já foi **resolvido**, ele entra no histórico, porque a resolução é informação nova, e a resposta é gerada de novo. O cache nunca é compartilhado entre clientes: a chave inclui o perfil e a busca fica na pasta do cliente.
+
 O log aparece no terminal e é gravado em `logs/app.log` (fora do git).
 
 ## Dados de exemplo

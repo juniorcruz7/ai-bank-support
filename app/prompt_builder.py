@@ -49,12 +49,31 @@ def list_versions(prompts_dir: Path = PROMPTS_DIR) -> list[str]:
     return sorted(p.name for p in prompts_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
 
 
+def normalize_text(text: str) -> str:
+    """Colapsa espaços e quebras de linha: diferenças só de espaço não mudam o conteúdo."""
+    return " ".join(text.split())
+
+
+def _same_report(a: Ticket, b: Ticket) -> bool:
+    return normalize_text(a.title) == normalize_text(b.title) and normalize_text(a.description) == normalize_text(
+        b.description
+    )
+
+
 def get_customer_history(tickets: list[Ticket], ticket: Ticket, limit: int = MAX_HISTORY) -> list[Ticket]:
-    """Até `limit` tickets anteriores do mesmo cliente, do mais recente ao mais antigo."""
+    """Até `limit` tickets anteriores do mesmo cliente, do mais recente ao mais antigo.
+
+    Um ticket anterior ainda aberto e com o mesmo texto do atual fica de fora: é a mesma
+    reclamação repetida, não acrescenta informação, e deixá-lo mudaria a chave de cache
+    sem motivo. Se ele já foi resolvido, entra, porque a resolução é informação nova.
+    """
     previous = [
         t
         for t in tickets
-        if t.customer_id == ticket.customer_id and t.id != ticket.id and t.created_at < ticket.created_at
+        if t.customer_id == ticket.customer_id
+        and t.id != ticket.id
+        and t.created_at < ticket.created_at
+        and not (t.status == "aberto" and _same_report(t, ticket))
     ]
     previous.sort(key=lambda t: t.created_at, reverse=True)
     return previous[:limit]

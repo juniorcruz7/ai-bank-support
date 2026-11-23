@@ -60,7 +60,7 @@ def run_content(
     cache_key = compute_cache_key(profile, ticket, prompt, history, client.provider, client.model, client.config)
     label = f"{ticket.id} {content_type} {version}"
 
-    output = _cached_output(find_cached_run(profile.id, ticket.id, cache_key, runs_dir), content_type)
+    output = _cached_output(find_cached_run(profile.id, cache_key, runs_dir), content_type)
     usage = None
     if output is not None:
         logger.info("cache hit: %s (chave %s)", label, cache_key[:12])

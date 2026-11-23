@@ -235,12 +235,17 @@ def update_run(path: Path, run: Run) -> None:
     write_json_atomic(path, run.model_dump(mode="json"))
 
 
-def run_files_with_key(customer_id: str, ticket_id: str, cache_key: str, runs_dir: Path = RUNS_DIR) -> list[Path]:
-    """Arquivos cujo nome bate com o prefixo da chave, do mais novo ao mais antigo."""
-    folder = run_folder(customer_id, ticket_id, runs_dir)
+def run_files_with_key(customer_id: str, cache_key: str, runs_dir: Path = RUNS_DIR) -> list[Path]:
+    """Execuções do cliente (em qualquer ticket) cujo nome bate com o prefixo da chave, da mais nova à mais antiga.
+
+    A chave não depende do ID do ticket, só do conteúdo: dois tickets do mesmo cliente com o
+    mesmo texto e o mesmo contexto reaproveitam a mesma resposta.
+    """
+    folder = runs_dir / customer_id
     if not folder.is_dir():
         return []
-    return sorted(folder.glob(f"*_{cache_key[:CACHE_KEY_PREFIX_LENGTH]}.json"), reverse=True)
+    files = folder.glob(f"*/*_{cache_key[:CACHE_KEY_PREFIX_LENGTH]}.json")
+    return sorted(files, key=lambda p: p.name, reverse=True)  # o nome começa pelo timestamp
 
 
 def list_customer_runs(customer_id: str, runs_dir: Path = RUNS_DIR) -> list[tuple[Path, Run]]:

@@ -88,4 +88,4 @@ def test_template_edit_changes_only_that_type(tmp_path):
 
 
 def test_find_cached_run_missing_folder(tmp_path):
-    assert find_cached_run("C001", "T001", BASE_KEY, tmp_path) is None
+    assert find_cached_run("C001", BASE_KEY, tmp_path) is None
