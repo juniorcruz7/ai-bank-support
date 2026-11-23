@@ -61,6 +61,11 @@ class Ticket(BaseModel):
     def _validate_description(cls, value: str) -> str:
         return _clean_text(value, "descrição", MAX_DESCRIPTION_LENGTH, MIN_DESCRIPTION_LENGTH)
 
+    @field_validator("resolution")
+    @classmethod
+    def _validate_resolution(cls, value: str | None) -> str | None:
+        return None if value is None else _clean_text(value, "resolução", MAX_DESCRIPTION_LENGTH)
+
     @model_validator(mode="after")
     def _resolved_needs_resolution(self) -> "Ticket":
         if self.status == "resolvido" and not (self.resolution and self.resolution.strip()):

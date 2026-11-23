@@ -257,3 +257,62 @@ def test_compare_invalid_rubric_file_fails_before_calling_api(env, capsys):
     assert _compare("--rubric", str(_rubric_file(env.root, v1=(2, 1, 9)))) == 1
     assert "Nota inválida em v1.actionability" in capsys.readouterr().err
     assert env.client.calls == []
+
+
+# --- ticket close (RF18) e history (RF15) ----------------------------------
+
+
+def _ticket_by_id(env, ticket_id):
+    data = json.loads((env.root / "data" / "tickets.json").read_text(encoding="utf-8"))
+    return next(t for t in data if t["id"] == ticket_id)
+
+
+def test_ticket_close_with_flags(env, capsys):
+    assert main.main(["ticket", "close", "T001", "--resolution", "Pix estornado pelo banco de destino."]) == 0
+    assert "Ticket T001 fechado como resolvido." in capsys.readouterr().out
+    ticket = _ticket_by_id(env, "T001")
+    assert ticket["status"] == "resolvido"
+    assert ticket["resolution"] == "Pix estornado pelo banco de destino."
+
+
+def test_ticket_close_interactive_lists_only_open_tickets(env, capsys):
+    env.answers("1", "Cartão internacional habilitado no app.")
+    assert main.main(["ticket", "close"]) == 0
+    out = capsys.readouterr().out
+    assert "T001 · C001" in out and "T005" not in out
+    assert _ticket_by_id(env, "T001")["status"] == "resolvido"
+
+
+def test_ticket_close_errors_are_readable(env, capsys):
+    assert main.main(["ticket", "close", "T005", "--resolution", "Outra."]) == 1
+    assert main.main(["ticket", "close", "--resolution", "Sem ID."]) == 1
+    err = capsys.readouterr().err
+    assert "Erro: Ticket T005 já está resolvido" in err
+    assert "Erro: Informe o ID do ticket" in err
+    assert "Traceback" not in err
+
+
+def test_history_lists_tickets_and_runs(env, capsys):
+    env.responses(VALID_DIAGNOSIS)
+    _generate("--type", "diagnosis")
+    (env.root / "runs" / "C001" / "T001" / "quebrado.json").write_text("{", encoding="utf-8")
+    capsys.readouterr()
+
+    assert main.main(["history", "--customer", "C001"]) == 0
+    out = capsys.readouterr().out
+    assert "=== Histórico · C001 · Maria" in out
+    assert "T001  20/11/2026 21:05  [aberto]  Pix não chegou" in out
+    assert "Resolução: Limite noturno" in out
+    assert "Execuções (1):" in out  # o arquivo ilegível é ignorado
+    assert "Diagnóstico · v2 · gerado" in out
+
+
+def test_history_without_runs(env, capsys):
+    assert main.main(["history", "--customer", "C002"]) == 0
+    out = capsys.readouterr().out
+    assert "Tickets (1):" in out and "Execuções (0):" in out and "(nenhuma)" in out
+
+
+def test_history_unknown_customer(env, capsys):
+    assert main.main(["history", "--customer", "C999"]) == 1
+    assert "Perfil 'C999' não existe" in capsys.readouterr().err

@@ -4,7 +4,16 @@ import json
 
 import pytest
 
-from app.storage import TICKETS_PATH, DataError, add_ticket, get_profile, load_profiles, load_tickets
+from app.prompt_builder import get_customer_history
+from app.storage import (
+    TICKETS_PATH,
+    DataError,
+    add_ticket,
+    close_ticket,
+    get_profile,
+    load_profiles,
+    load_tickets,
+)
 
 PROFILE = {
     "id": "C001",
@@ -162,4 +171,47 @@ def test_add_ticket_invalid_text_writes_nothing(tmp_path):
     original = path.read_text(encoding="utf-8")
     with pytest.raises(DataError, match="Ticket inválido: description: descrição com 5 caracteres"):
         add_ticket(profiles, "C001", "Título", "curto", path)
+    assert path.read_text(encoding="utf-8") == original
+
+
+# --- fechar ticket (RF18) --------------------------------------------------
+
+
+def test_close_ticket_sets_status_and_resolution(tmp_path):
+    profiles, path = _real_data_copy(tmp_path)
+    before = load_tickets(profiles, path)
+
+    closed = close_ticket(profiles, "T001", "  Pix estornado pelo banco de destino.  ", path)
+
+    after = load_tickets(profiles, path)
+    assert closed.status == "resolvido"
+    assert closed.resolution == "Pix estornado pelo banco de destino."
+    assert next(t for t in after if t.id == "T001") == closed
+    assert [t for t in after if t.id != "T001"] == [t for t in before if t.id != "T001"]
+
+
+def test_closed_resolution_feeds_next_ticket_context(tmp_path):
+    profiles, path = _real_data_copy(tmp_path)
+    close_ticket(profiles, "T001", "Pix estornado pelo banco de destino.", path)
+    new = add_ticket(profiles, "C001", "Pix de novo", "Fiz outro Pix e também não chegou.", path)
+
+    history = get_customer_history(load_tickets(profiles, path), new)
+    assert history[0].id == "T001"
+    assert history[0].resolution == "Pix estornado pelo banco de destino."
+
+
+@pytest.mark.parametrize(
+    ("ticket_id", "resolution", "message"),
+    [
+        ("T999", "Resolvido.", "Ticket 'T999' não existe"),
+        ("T005", "Outra resolução.", "Ticket T005 já está resolvido"),
+        ("T001", "   ", "Resolução inválida: resolution: resolução vazio"),
+        ("T001", "x" * 2001, "resolução com 2001 caracteres; máximo 2000"),
+    ],
+)
+def test_close_ticket_invalid_writes_nothing(tmp_path, ticket_id, resolution, message):
+    profiles, path = _real_data_copy(tmp_path)
+    original = path.read_text(encoding="utf-8")
+    with pytest.raises(DataError, match=message):
+        close_ticket(profiles, ticket_id, resolution, path)
     assert path.read_text(encoding="utf-8") == original

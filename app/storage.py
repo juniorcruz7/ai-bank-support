@@ -1,6 +1,7 @@
 """Leitura e escrita atômica de execuções e tickets."""
 
 import json
+import logging
 import os
 import tempfile
 from contextlib import suppress
@@ -25,6 +26,8 @@ CACHE_KEY_PREFIX_LENGTH = 16
 
 MIN_PROFILES = 3
 MAX_PROFILES = 5
+
+logger = logging.getLogger(__name__)
 
 
 M = TypeVar("M", bound=BaseModel)
@@ -162,6 +165,29 @@ def add_ticket(
     return ticket
 
 
+def close_ticket(profiles: dict[str, Profile], ticket_id: str, resolution: str, path: Path = TICKETS_PATH) -> Ticket:
+    """Marca o ticket como resolvido e grava a resolução (RF18); nada é gravado se algo for inválido.
+
+    A resolução passa a entrar no histórico dos próximos pedidos do cliente, e o hash
+    dos tickets de contexto na chave de cache invalida o que dependia da versão antiga.
+    """
+    tickets = load_tickets(profiles, path)
+    index = next((i for i, t in enumerate(tickets) if t.id == ticket_id), None)
+    if index is None:
+        raise DataError(f"Ticket {ticket_id!r} não existe.")
+    current = tickets[index]
+    if current.status == "resolvido":
+        raise DataError(f"Ticket {ticket_id} já está resolvido. Resolução atual: {current.resolution}")
+    try:
+        closed = Ticket.model_validate({**current.model_dump(), "status": "resolvido", "resolution": resolution})
+    except ValidationError as exc:
+        details = "; ".join(_describe_error(e) for e in exc.errors())
+        raise DataError(f"Resolução inválida: {details}") from None
+    tickets[index] = closed
+    write_json_atomic(path, [t.model_dump(mode="json") for t in tickets])
+    return closed
+
+
 def get_profile(profiles: dict[str, Profile], profile_id: str) -> Profile:
     """Retorna o perfil pelo id ou lança DataError listando os disponíveis."""
     try:
@@ -201,3 +227,18 @@ def run_files_with_key(customer_id: str, ticket_id: str, cache_key: str, runs_di
     if not folder.is_dir():
         return []
     return sorted(folder.glob(f"*_{cache_key[:CACHE_KEY_PREFIX_LENGTH]}.json"), reverse=True)
+
+
+def list_customer_runs(customer_id: str, runs_dir: Path = RUNS_DIR) -> list[tuple[Path, Run]]:
+    """Todas as execuções de um cliente (RF15), em ordem cronológica; arquivos ilegíveis são ignorados."""
+    folder = runs_dir / customer_id
+    if not folder.is_dir():
+        return []
+    runs: list[tuple[Path, Run]] = []
+    for path in folder.glob("*/*.json"):
+        try:
+            runs.append((path, Run.model_validate_json(path.read_text(encoding="utf-8"))))
+        except (OSError, ValidationError) as exc:
+            logger.warning("Ignorando execução ilegível em %s: %s", path, type(exc).__name__)
+    runs.sort(key=lambda item: item[1].timestamp)
+    return runs

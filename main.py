@@ -22,7 +22,13 @@ from app.generators import OutputValidationError
 from app.llm_client import GeminiClient, LLMAuthError, LLMClient, LLMError
 from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket
 from app.prompt_builder import CONTENT_TYPES, PROMPTS_DIR, PromptError, list_versions
-from app.render import CONTENT_LABELS, render_output, render_scores_table, render_side_by_side
+from app.render import (
+    CONTENT_LABELS,
+    render_history,
+    render_output,
+    render_scores_table,
+    render_side_by_side,
+)
 from app.service import RunResult, run_content
 from app.storage import (
     PROFILES_PATH,
@@ -30,7 +36,9 @@ from app.storage import (
     TICKETS_PATH,
     DataError,
     add_ticket,
+    close_ticket,
     get_profile,
+    list_customer_runs,
     load_profiles,
     load_tickets,
 )
@@ -302,6 +310,34 @@ def cmd_ticket_add(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_ticket_close(args: argparse.Namespace) -> int:
+    profiles = load_profiles(PROFILES_PATH)
+    tickets = load_tickets(profiles, TICKETS_PATH)
+    ticket_id = args.ticket_id
+    _require(ticket_id, "o ID do ticket (ex.: ticket close T001)")
+    if not ticket_id:
+        open_tickets = [(t.id, f"{t.id} · {t.customer_id} · {t.title}") for t in tickets if t.status == "aberto"]
+        if not open_tickets:
+            raise CliError("Não há tickets abertos para fechar.")
+        ticket_id = _choose("Escolha o ticket a fechar:", open_tickets)
+    _require(args.resolution, "--resolution")
+    resolution = args.resolution or _ask("Resolução: ")
+    ticket = close_ticket(profiles, ticket_id, resolution, path=TICKETS_PATH)
+    print(f"Ticket {ticket.id} fechado como resolvido.")
+    print(f"A resolução passa a entrar no contexto dos próximos tickets de {ticket.customer_id}.")
+    return 0
+
+
+def cmd_history(args: argparse.Namespace) -> int:
+    profiles = load_profiles(PROFILES_PATH)
+    tickets = load_tickets(profiles, TICKETS_PATH)
+    profile = _pick_customer(profiles, args.customer)
+    own = [t for t in tickets if t.customer_id == profile.id]
+    runs = [(_display_path(path), run) for path, run in list_customer_runs(profile.id, RUNS_DIR)]
+    print(render_history(profile, own, runs))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="main.py", description="Assistente de suporte de banco digital com prompts versionados."
@@ -330,6 +366,14 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--title", help="título curto do ticket")
     add.add_argument("--description", help="descrição como o cliente escreveu")
     add.set_defaults(handler=cmd_ticket_add)
+    close = ticket_commands.add_parser("close", help="fecha um ticket como resolvido e grava a resolução")
+    close.add_argument("ticket_id", nargs="?", metavar="TICKET", help="ID do ticket (ex.: T001)")
+    close.add_argument("--resolution", help="como o problema foi resolvido")
+    close.set_defaults(handler=cmd_ticket_close)
+
+    history = commands.add_parser("history", help="lista os tickets e as execuções de um cliente")
+    history.add_argument("--customer", help="ID do cliente (ex.: C001)")
+    history.set_defaults(handler=cmd_history)
     return parser
 
 

@@ -105,6 +105,22 @@ python main.py ticket add --customer C003 --title "Maquininha" --description "A 
 
 O ticket é anexado a `data/tickets.json` com o próximo ID (T007, T008…), `status: "aberto"` e data/hora. No `generate` interativo também existe a opção "Digitar um novo ticket".
 
+### Fechar um ticket
+
+```bash
+python main.py ticket close T001 --resolution "Pix estornado pelo banco de destino."
+```
+
+Marca o ticket como `resolvido` e grava a `resolution` em `data/tickets.json` (escrita atômica; ticket inexistente, já resolvido ou resolução vazia dão erro e nada é gravado). A resolução passa a entrar no histórico dos próximos tickets do cliente e, como o conteúdo dos tickets de contexto faz parte da chave de cache, as gerações que dependem dele são refeitas. Sem argumentos, a CLI lista os tickets abertos e pede a resolução.
+
+### Histórico de um cliente
+
+```bash
+python main.py history --customer C001
+```
+
+Lista os tickets do cliente (mais recentes primeiro, com a resolução quando houver) e as execuções gravadas em `runs/` para cada ticket: data, tipo, versão, se veio do cache, nota da rubrica e caminho do JSON.
+
 ## Arquitetura
 
 ```text
@@ -118,7 +134,7 @@ CLI (main.py)
 
 | Módulo | Responsabilidade |
 | --- | --- |
-| `main.py` | CLI: subcomandos `generate`, `compare` e `ticket add`, menus e mensagens de erro |
+| `main.py` | CLI: subcomandos `generate`, `compare`, `ticket add`, `ticket close` e `history`, menus e mensagens de erro |
 | `app/config.py` | Lê o `.env` (chave, modelo, temperatura, `max_tokens`) |
 | `app/models.py` | Modelos Pydantic: perfil, ticket, as 4 saídas, execução e rubrica |
 | `app/prompt_builder.py` | Monta o prompt em camadas a partir dos templates da versão |

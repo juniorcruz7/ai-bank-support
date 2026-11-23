@@ -14,7 +14,10 @@ from app.models import (
     Evaluation,
     FlowNode,
     FlowSummary,
+    Profile,
     ResolutionSteps,
+    Run,
+    Ticket,
 )
 
 CONTENT_LABELS = {
@@ -146,4 +149,46 @@ def render_scores_table(evaluations: dict[str, Evaluation]) -> str:
         lines.append(label.ljust(label_width) + "".join(f"{getattr(evaluations[v], key).score:>6}" for v in versions))
     lines.append("-" * len(header))
     lines.append("Total".ljust(label_width) + "".join(f"{evaluations[v].total:>6}" for v in versions))
+    return "\n".join(lines)
+
+
+def render_history(profile: Profile, tickets: list[Ticket], runs: list[tuple[str, Run]]) -> str:
+    """Tickets do cliente (mais recentes primeiro) e as execuções de cada um (RF15).
+
+    `runs` traz pares (caminho já formatado para exibição, execução), em ordem cronológica.
+    """
+    lines = [
+        f"=== Histórico · {profile.id} · {profile.name} "
+        f"({profile.technical_level}, {profile.communication_style}, {profile.channel}) ===",
+        "",
+        f"Tickets ({len(tickets)}):",
+    ]
+    ordered = sorted(tickets, key=lambda t: t.created_at, reverse=True)
+    for t in ordered:
+        lines.append(f"  {t.id}  {t.created_at:%d/%m/%Y %H:%M}  [{t.status}]  {t.title}")
+        if t.resolution:
+            lines.append(f"        Resolução: {t.resolution}")
+    if not tickets:
+        lines.append("  (nenhum)")
+
+    lines += ["", f"Execuções ({len(runs)}):"]
+    if not runs:
+        lines.append("  (nenhuma)")
+    known = [t.id for t in ordered]
+    orphan = sorted({run.ticket.id for _, run in runs} - set(known))
+    for ticket_id in known + orphan:
+        own = [(path, run) for path, run in runs if run.ticket.id == ticket_id]
+        if not own:
+            continue
+        lines.append(f"  {ticket_id}")
+        for path, run in own:
+            status = "cache hit" if run.cache_hit else "gerado"
+            lines.append(
+                f"    {run.timestamp:%d/%m/%Y %H:%M}  {CONTENT_LABELS[run.content_type]} · "
+                f"{run.prompt_version} · {status}"
+            )
+            if run.evaluation:
+                ev = run.evaluation
+                lines.append(f"      Rubrica: {ev.total}/15 (comparação {ev.comparison_id[:8]})")
+            lines.append(f"      {path}")
     return "\n".join(lines)
