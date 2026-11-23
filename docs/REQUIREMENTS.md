@@ -21,6 +21,7 @@ O sistema recebe **um perfil de cliente + um ticket** e gera, com prompts versio
 - Deploy em nuvem (ponto extra)
 - Integração com sistemas reais de ticket; login de produção (o login com contas cliente/atendente é extra de demonstração, ver Contas e permissões)
 - Guardar o raciocínio interno do modelo (o desafio pede explicitamente para não fazer)
+- Banco de dados: cortado por fugir do escopo do projeto. O desafio pede o histórico em JSON, que é a persistência usada; um banco só faria diferença no deploy (persistir entre reinícios), e para isso precisaria ser hospedado fora da plataforma, com dependência e segredo novos, sem ganho para o foco da avaliação (engenharia de prompt e implementação)
 
 ## Requisitos funcionais
 
@@ -43,7 +44,7 @@ Prioridade **M** = obrigatório pelo desafio, **D** = diferencial.
 | RF13 | Mostrar a saída no terminal e o caminho do JSON salvo | 4.5 | M |
 | RF14 | Interface web simples (ex.: Streamlit) sobre o mesmo núcleo | 3 | D |
 | RF15 | Cada ticket pertence a um cliente (`customer_id`); listar todos os tickets e execuções de um cliente | Própria | D |
-| RF16 | Incluir no prompt os tickets anteriores do cliente (até 3, mais recentes, com status e resolução) como contexto | Própria (reforça 4.2 context setting) | D |
+| RF16 | Incluir no prompt os tickets anteriores do cliente (até 3, mais recentes, com status e resolução) como contexto. Exceção: um ticket anterior **ainda aberto e com o mesmo texto** do atual fica de fora, porque é a mesma reclamação repetida e não acrescenta informação; assim o prompt fica igual ao do primeiro ticket e a resposta é reaproveitada do cache. Se o anterior já foi resolvido, ele entra, porque a resolução é informação nova | Própria (reforça 4.2 context setting) | D |
 | RF17 | Ticket digitado na CLI é anexado ao `tickets.json` com ID sequencial (T007, T008…), `customer_id`, `created_at` e `status: "aberto"`; nenhum ticket é apagado. Cliente inexistente → erro claro, sem ticket órfão | Própria | D |
 | RF18 | Fechar ticket = atualizar `status` para `resolvido` e gravar `resolution` (ex.: `close T001 --resolution "..."`); a resolução passa a alimentar o contexto dos próximos pedidos do cliente | Própria | D |
 
@@ -227,7 +228,7 @@ ai-bank-support/
 | Provedor | Gemini | Saída estruturada via schema de resposta do Gemini; `GEMINI_API_KEY` no `.env` |
 | Histórico | Um arquivo por execução em `runs/<customer_id>/<ticket_id>/` | Nome do arquivo inclui o `cache_key`; cache acha a execução sem abrir tudo; histórico por pessoa = listar a pasta |
 | Fluxograma | Árvore JSON validada, desenhada em ASCII pelo código | O modelo só gera nós e condições; o desenho sai sempre alinhado |
-| Ordem dos extras | Interface → deploy → testes → banco de dados | O banco entra só como extra; o JSON continua sendo a persistência exigida |
+| Ordem dos extras | Interface → deploy → testes | O banco de dados, previsto como último extra, foi cortado por fugir do escopo do projeto (ver Fora do escopo); o JSON é a persistência exigida e a usada |
 | Domínio | Banco digital | 5 perfis e 6 tickets; comparação usa T001 + C001 (Maria) |
 
 **Público das saídas:** o sistema é uma ferramenta para responder o cliente, operada pelo atendente. Passo a passo e perguntas de esclarecimento saem como texto pronto para o cliente, no nível, estilo e canal do perfil. Diagnóstico e fluxograma são apoio interno do atendente e podem usar linguagem técnica.
@@ -266,19 +267,19 @@ O login aparece de verdade no Streamlit (fase de interface). A CLI continua send
 
 ## Entregáveis e critérios de aceite
 
-- [ ] Projeto roda do zero seguindo só o README (testar num clone limpo)
-- [ ] Nenhuma chave versionada; `.env.example` presente
-- [ ] `requirements.txt` com as dependências
-- [ ] 3 a 5 perfis em JSON
-- [ ] Os 4 tipos de conteúdo gerados pela CLI
-- [ ] Cache evitando pelo menos 1 chamada repetida (mostrar no log/sample)
-- [ ] Comparação v1 × v2 no mesmo cenário, registrada no histórico
-- [ ] 3 notas da rubrica + justificativas para cada versão
-- [ ] Diretório `/samples` com JSONs de exemplo
-- [ ] `PROMPT_ENGINEERING_NOTES.md`: estratégias, versões, por que v2 > v1, limitações
-- [ ] README com setup, execução, arquitetura resumida e exemplos
-- [ ] Histórico de commits legível (commits pequenos e por etapa)
-- [ ] Extras: Streamlit, deploy, testes com pytest, banco de dados
+- [x] Projeto roda do zero seguindo só o README (testar num clone limpo)
+- [x] Nenhuma chave versionada; `.env.example` presente
+- [x] `requirements.txt` com as dependências
+- [x] 3 a 5 perfis em JSON
+- [x] Os 4 tipos de conteúdo gerados pela CLI
+- [x] Cache evitando pelo menos 1 chamada repetida (mostrar no log/sample)
+- [x] Comparação v1 × v2 no mesmo cenário, registrada no histórico
+- [x] 3 notas da rubrica + justificativas para cada versão
+- [x] Diretório `/samples` com JSONs de exemplo
+- [x] `PROMPT_ENGINEERING_NOTES.md`: estratégias, versões, por que v2 > v1, limitações
+- [x] README com setup, execução, arquitetura resumida e exemplos
+- [x] Histórico de commits legível (commits pequenos e por etapa)
+- [x] Extras: Streamlit, deploy e testes com pytest (banco de dados cortado por fugir do escopo do projeto)
 
 ## Convenções de implementação
 
