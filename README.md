@@ -174,6 +174,47 @@ Abre no navegador (padrão `http://localhost:8501`) uma interface sobre o mesmo 
 
 A interface abre numa tela de login (mesmas contas da CLI), com uma aba que lista as contas de demonstração. O atendente vê as 4 páginas acima. O cliente vê uma interface própria, sem escolher cliente nem versão: **Ajuda com um ticket** (passo a passo e perguntas), **Meu histórico** (os próprios tickets e as respostas já recebidas, sem dados técnicos) e **Abrir ticket**. Para o cliente, os tickets aparecem numerados na conta dele (nº 1, nº 2…, por ordem de abertura); o ID interno continua global e sequencial (T007, T008…), como pede o RF17. A chave continua vindo do `.env`.
 
+## Deploy (Streamlit Community Cloud)
+
+A interface web roda no [Streamlit Community Cloud](https://share.streamlit.io) direto do repositório do GitHub, sem servidor próprio. A chave do Gemini fica nos *secrets* da plataforma, nunca no repositório.
+
+**Passo a passo**
+
+1. Entre em [share.streamlit.io](https://share.streamlit.io) com a conta do GitHub que tem acesso de administrador ao repositório.
+2. **Create app** → **Yup, I have an app** e preencha:
+   - **Repository:** `juniorcruz7/ai-bank-support`
+   - **Branch:** `main` (a branch onde as fases foram mescladas)
+   - **Main file path:** `streamlit_app.py`
+   - **App URL** (opcional): o endereço público do app.
+3. Abra **Advanced settings**:
+   - **Python version:** `3.13`, a versão usada no desenvolvimento e nos testes. O padrão da plataforma é 3.12, que também atende o requisito (3.11+).
+   - **Secrets:** cole a chave em formato TOML:
+
+     ```toml
+     GEMINI_API_KEY = "sua-chave-aqui"
+     # opcionais, como no .env:
+     # GEMINI_MODEL = "gemini-2.5-flash"
+     # GEMINI_TEMPERATURE = "0.2"
+     # GEMINI_MAX_TOKENS = "2048"
+     ```
+4. **Deploy**. A plataforma instala o `requirements.txt` da raiz (o `pyproject.toml` só guarda a configuração do ruff, e o `requirements.txt` tem prioridade sobre ele) e abre a tela de login.
+
+Os secrets podem ser trocados depois em **Settings → Secrets**, sem novo deploy do código. Na inicialização, o app copia `GEMINI_API_KEY` e as opcionais de `st.secrets` para variáveis de ambiente; o núcleo continua lendo só o ambiente/`.env` (`app/config.py`), sem depender do Streamlit. Se a variável já existir no ambiente, ela tem prioridade. Para testar os secrets localmente, use `.streamlit/secrets.toml`, que está no `.gitignore`.
+
+**Como o app se comporta na nuvem**
+
+- **Os dados não são persistentes.** Tickets abertos, tickets fechados e execuções em `runs/` são gravados no disco do servidor, que não é garantido entre reinícios. A cada novo deploy ou reinício, o app volta aos dados de exemplo do repositório. A persistência de verdade fica para a fase de banco de dados.
+- **Os dados são compartilhados.** Todos os visitantes usam o mesmo `tickets.json`: um ticket aberto ou fechado por alguém aparece para todos. Para restaurar os dados de exemplo, reinicie o app em **Manage app → Reboot app**.
+- **O app dorme** depois de 12 horas sem acesso e acorda na próxima visita, que demora um pouco mais.
+
+**Custo e acesso**
+
+As contas de demonstração aparecem na tela de login, então qualquer pessoa com o link pode gerar conteúdo e gastar a cota da chave. Para limitar isso:
+
+- Use uma chave de um projeto do Google AI Studio **sem faturamento ativado** (nível gratuito): ao bater no limite, a API recusa novas chamadas (erro 429, que o app mostra como mensagem legível) em vez de cobrar.
+- Se a chave vazar ou for abusada, gere outra no AI Studio e troque em **Settings → Secrets**.
+- Para restringir quem acessa, deixe o app privado em **Settings → Sharing** ("Only specific people can view this app") e convide os avaliadores por e-mail. A conta gratuita permite um app privado por vez.
+
 ## Arquitetura
 
 ```text
@@ -259,6 +300,6 @@ ruff format --check .
 ## Ferramentas utilizadas
 
 - Python 3, Pydantic, python-dotenv e o SDK `google-genai` (modelo `gemini-2.5-flash`).
-- Streamlit para a interface web.
+- Streamlit para a interface web e Streamlit Community Cloud para o deploy.
 - pytest para os testes.
 - O Claude (Anthropic) foi usado como auxílio na parte de código.
