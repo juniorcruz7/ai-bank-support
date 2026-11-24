@@ -152,7 +152,14 @@ def customer_history(
     runs = list_customer_runs(customer_id, runs_dir)
     if not auth.is_agent(user):
         allowed = auth.allowed_content_types(user)
-        runs = [(p, r.model_copy(update={"evaluation": None})) for p, r in runs if r.content_type in allowed]
+        # Resposta de um ticket que não existe mais (ex.: tickets.json restaurado) não aparece para o
+        # cliente: ele não teria como saber a que se refere. O atendente continua vendo todas.
+        existing = {t.id for t in own}
+        runs = [
+            (p, r.model_copy(update={"evaluation": None}))
+            for p, r in runs
+            if r.content_type in allowed and r.ticket.id in existing
+        ]
     return own, runs
 
 

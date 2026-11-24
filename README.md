@@ -1,7 +1,7 @@
 # ai-bank-support
 
 > **Demonstração online: [ai-bank-support.streamlit.app](https://ai-bank-support.streamlit.app)**
-> Interface web pronta para testar, sem instalar nada. As contas de teste (cliente e atendente) estão na aba "Contas de demonstração" da tela de login. Os dados são compartilhados entre visitantes e voltam aos de exemplo quando o app reinicia ([detalhes](#deploy-streamlit-community-cloud)).
+> Interface web pronta para testar, sem instalar nada. As contas de teste (cliente e atendente) abrem num pop-up pelo botão "Ver contas de teste", na tela de login. Os dados são compartilhados entre visitantes e voltam aos de exemplo quando o app reinicia ([detalhes](#deploy-streamlit-community-cloud)).
 
 Assistente de suporte para um banco digital fictício, construído com **engenharia de prompt versionada**. A partir de um **perfil de cliente** e de um **ticket**, o sistema gera quatro conteúdos de suporte com o Gemini, valida cada saída com Pydantic, guarda tudo num histórico JSON com cache e permite comparar versões de prompt (v1, v2 e v3) com uma rubrica. A partir da v3, um ticket que não é um pedido de suporte do banco (por exemplo, "meu gato comeu pedra") é recusado com uma mensagem ao cliente, em vez de receber uma resposta inventada.
 
@@ -172,14 +172,15 @@ Para o atendente, lista os tickets do cliente (mais recentes primeiro, com a res
 streamlit run streamlit_app.py
 ```
 
-Abre no navegador (padrão `http://localhost:8501`) uma interface sobre o mesmo núcleo da CLI, com as mesmas regras de cache, histórico e validação:
+Abre no navegador (padrão `http://localhost:8501`) uma interface sobre o mesmo núcleo da CLI, com as mesmas regras de cache, histórico e validação. A navegação fica no topo, em botões grandes, e o app abre numa página **Início** com um cartão para cada ação (o que ela faz e um botão para ir até lá), para ninguém precisar procurar onde fica cada coisa. O tema é azul, com variantes clara e escura (`.streamlit/config.toml`). O botão **Modo noturno**, no cabeçalho e na tela de login, alterna entre as duas: a escolha fica salva no navegador e a página recarrega já no tema escolhido, sem perder o login (um código aleatório, de uso único e válido por 60 segundos, devolve a pessoa à mesma conta e página). Páginas do atendente:
 
+- **Início**: tickets abertos, resolvidos e clientes, e os cartões de ação.
 - **Gerar conteúdo**: cliente, ticket, um ou mais tipos e versão do prompt; mostra o histórico usado como contexto, a saída, o caminho do JSON, a latência e os tokens.
 - **Comparar versões**: saídas lado a lado e formulário da rubrica (nota de 1 a 5 e justificativa por critério), gravada nas execuções como no `compare`.
 - **Histórico do cliente**: tickets e execuções gravadas, com o JSON de cada uma.
 - **Tickets**: abrir um ticket novo e fechar um ticket aberto com a resolução.
 
-A interface abre numa tela de login (mesmas contas da CLI), com uma aba que lista as contas de demonstração. O atendente vê as 4 páginas acima. O cliente vê uma interface própria, sem escolher cliente nem versão: **Ajuda com um ticket** (passo a passo e perguntas), **Meu histórico** (os próprios tickets e as respostas já recebidas, sem dados técnicos) e **Abrir ticket**. Para o cliente, os tickets aparecem numerados na conta dele (nº 1, nº 2…, por ordem de abertura); o ID interno continua global e sequencial (T007, T008…), como pede o RF17. A chave continua vindo do `.env`.
+A interface abre numa tela de login (mesmas contas da CLI), com uma apresentação do produto ao lado do formulário. O botão azul-marinho "Ver contas de teste" abre um pop-up com os usuários e senhas, avisando que são fictícios e existem só para testar o produto. O cliente vê uma interface própria, sem escolher cliente nem versão: **Início** (saudação, quantos tickets abertos e os cartões de ação), **Ajuda com um ticket** (cada ticket é um cartão com o botão "Pedir ajuda", que traz o passo a passo e as perguntas no próprio cartão, sem menus para procurar), **Meu histórico** (os próprios tickets e as respostas já recebidas, sem dados técnicos) e **Abrir ticket** (depois de abrir, um botão leva direto a pedir ajuda com ele). Para o cliente, os tickets aparecem numerados na conta dele (nº 1, nº 2…, por ordem de abertura); o ID interno continua global e sequencial (T007, T008…), como pede o RF17. A chave continua vindo do `.env`.
 
 ## Deploy (Streamlit Community Cloud)
 
@@ -216,7 +217,7 @@ Os secrets podem ser trocados depois em **Settings → Secrets**, sem novo deplo
 
 **Custo e acesso**
 
-As contas de demonstração aparecem na tela de login, então qualquer pessoa com o link pode gerar conteúdo e gastar a cota da chave. Para limitar isso:
+As contas de demonstração ficam a um clique na tela de login (pop-up "Ver contas de teste"), então qualquer pessoa com o link pode gerar conteúdo e gastar a cota da chave. Para limitar isso:
 
 - Use uma chave de um projeto do Google AI Studio **sem faturamento ativado** (nível gratuito): ao bater no limite, a API recusa novas chamadas (erro 429, que o app mostra como mensagem legível) em vez de cobrar.
 - Se a chave vazar ou for abusada, gere outra no AI Studio e troque em **Settings → Secrets**.

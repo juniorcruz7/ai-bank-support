@@ -21,7 +21,7 @@ SALT_BYTES = 16
 CUSTOMER_CONTENT_TYPES = ("resolution_steps", "clarifying_questions")
 LOGIN_FAILED = "Usuário ou senha inválidos."
 
-# Credenciais fictícias mostradas na tela de login da web.
+# Credenciais fictícias do pop-up "Ver contas de teste" da tela de login da web.
 # Um teste garante que batem com data/users.json.
 DEMO_ACCOUNTS = (
     ("atendente", "atendente-demo"),

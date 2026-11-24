@@ -185,3 +185,16 @@ def test_customer_uses_default_version_only(tmp_path):
 
 def test_agent_chooses_version(tmp_path):
     assert _generate(AGENT, "T001", "resolution_steps", tmp_path, version="v1")[0].run.prompt_version == "v1"
+
+
+def test_customer_history_skips_answers_of_deleted_tickets(tmp_path):
+    result, _ = _generate(AGENT, "T001", "resolution_steps", tmp_path)
+    orphan = result.run.model_copy(update={"ticket": result.run.ticket.model_copy(update={"id": "T008"})})
+    folder = tmp_path / "C001" / "T008"
+    folder.mkdir(parents=True)
+    (folder / result.path.name).write_text(orphan.model_dump_json(), encoding="utf-8")
+
+    _, customer_runs = customer_history(MARIA, "C001", TICKETS, tmp_path)
+    assert [r.ticket.id for _, r in customer_runs] == ["T001"]
+    _, agent_runs = customer_history(AGENT, "C001", TICKETS, tmp_path)
+    assert sorted(r.ticket.id for _, r in agent_runs) == ["T001", "T008"]

@@ -1,0 +1,8 @@
+# Tema da interface web: azul de banco no lugar do vermelho padrão do Streamlit
+# (o vermelho fazia seleções e etiquetas parecerem erro). As duas variantes existem para o
+# botão "Modo noturno" (e o seletor do menu ⋮) alternarem entre claro e escuro.
+[theme.light]
+primaryColor = "#1f6feb"
+
+[theme.dark]
+primaryColor = "#3b82f6"
