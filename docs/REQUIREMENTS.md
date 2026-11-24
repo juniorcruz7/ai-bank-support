@@ -97,16 +97,18 @@ Valores permitidos: `technical_level` ∈ {leigo, intermediario, avancado}; `com
   "run_id": "uuid",
   "timestamp": "2026-11-21T15:30:00-03:00",
   "customer_id": "C001",
-  "ticket": { "id": "T001", "text": "..." },
+  "ticket": { "id": "T001", "title": "Pix não chegou", "text": "..." },
   "content_type": "diagnosis",
   "prompt_version": "v2",
   "provider": "gemini",
   "model": "<modelo>",
-  "config": { "temperature": 0.2, "max_tokens": 1024 },
+  "config": { "temperature": 0.2, "max_tokens": 2048, "thinking_budget": 0 },
   "context_ticket_ids": ["T005"],
+  "template_hash": "sha256...",
   "cache_key": "sha256...",
   "cache_hit": false,
   "output": { },
+  "usage": { "input_tokens": 775, "output_tokens": 484, "latency_ms": 3266, "llm_calls": 1, "http_attempts": 1 },
   "evaluation": null
 }
 ```
@@ -195,6 +197,7 @@ O modo comparação roda esse mesmo fluxo uma vez por versão e grava a rubrica 
 ```text
 ai-bank-support/
 ├── main.py                  # CLI (argparse ou menu interativo)
+├── streamlit_app.py         # interface web (Streamlit) sobre o mesmo núcleo
 ├── app/
 │   ├── config.py            # lê .env, modelo, temperatura
 │   ├── models.py            # Pydantic: Profile, Ticket, outputs, Evaluation
@@ -205,10 +208,13 @@ ai-bank-support/
 │   ├── storage.py           # leitura/escrita segura de runs e tickets
 │   ├── service.py           # orquestra prompt → cache → LLM → runs/ (e permissões)
 │   ├── auth.py              # login, hash de senha, checagem de permissão
-│   └── compare.py           # roda v1 × v2 e coleta a rubrica
+│   ├── compare.py           # roda v1 × v2 e coleta a rubrica
+│   ├── render.py            # saída no terminal, fluxograma ASCII, colunas lado a lado
+│   └── runtime.py           # cliente LLM e logging compartilhados pela CLI e pela web
 ├── prompts/
 │   ├── v1/                  # base + diagnosis, steps, questions, flow
-│   └── v2/
+│   ├── v2/
+│   └── v3/                  # v2 + ticket fora do escopo (versão padrão)
 ├── data/
 │   ├── profiles.json
 │   ├── users.json
@@ -216,8 +222,11 @@ ai-bank-support/
 ├── runs/<customer_id>/<ticket_id>/   # 1 JSON por execução (fora do git)
 ├── samples/                 # JSONs de exemplo versionados
 ├── tests/
+├── docs/REQUIREMENTS.md
 ├── .env.example
 ├── requirements.txt
+├── requirements-dev.txt     # pytest e ruff
+├── pyproject.toml           # configuração do ruff e do pytest
 ├── README.md
 └── PROMPT_ENGINEERING_NOTES.md
 ```

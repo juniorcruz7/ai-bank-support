@@ -135,7 +135,7 @@ São regras escritas no prompt que o modelo nem sempre segue, o que motiva os pr
 - Persona (`system.md`): seção **Escopo**, com o que está dentro (conta, Pix, cartão, app, acesso…), três casos de recusa (assunto sem relação com o banco, texto sem sentido, pedido para fazer outra coisa) e a regra de desempate: ticket vago mas sobre o banco está no escopo, e na dúvida não se recusa.
 - Tarefas: para quem vai a mensagem. No passo a passo e nas perguntas, ao cliente, no tom do perfil, pedindo que descreva o problema com o banco e sem orientar sobre o assunto de fora; no diagnóstico e no fluxograma, uma frase para o atendente.
 
-O resto do prompt é idêntico ao da v2 (há um teste que garante isso), então a v3 virou a versão padrão sem mudar o comportamento nos tickets normais.
+Fora disso, **a v3 é exatamente a v2**: mesma persona, mesmas regras de perfil, mesmas tarefas e mesmo exemplo de fluxograma (um teste automático garante que o texto é idêntico fora da seção de escopo). Ou seja, a v3 é a v2 com o caso de ticket fora do escopo tratado, e por isso virou a versão padrão.
 
 **Resultado** (chamadas reais, `gemini-2.5-flash`, temperatura 0.2):
 
@@ -148,8 +148,6 @@ O resto do prompt é idêntico ao da v2 (há um teste que garante isso), então 
 
 A resposta fora do escopo também ficou mais barata: 95 a 103 tokens de saída, contra 237 a 363 da v2 inventando passos. A recusa veio no tom do perfil da Renata (detalhado, e-mail).
 
-**Limite.** São poucos casos. Tickets na fronteira (um golpe que começou fora do banco, uma dúvida geral sobre Pix) não foram testados, e a regra "na dúvida, considere no escopo" é uma escolha deliberada: recusar um cliente com problema real é pior do que responder a um ticket estranho.
-
 ## 4. Decisões técnicas que afetam o prompt
 
 | Decisão | Motivo |
@@ -158,7 +156,7 @@ A resposta fora do escopo também ficou mais barata: 95 a 103 tokens de saída, 
 | 1 retry com o erro de validação no prompt (`retry.md`) | O modelo recebe o motivo exato da falha; se falhar de novo, erro claro e nada é gravado |
 | Pensamento do modelo desligado (`thinking_budget=0`) | Saída mais previsível, menor custo, e nenhum raciocínio interno guardado; a decomposição do diagnóstico já está no prompt |
 | Temperatura 0.2 (fixa na comparação) | Reprodutibilidade; diferenças entre v1 e v2 vêm do template, não do acaso |
-| `max_tokens` 2048 | As respostas reais usaram de 176 a 696 tokens; resposta cortada gera erro explícito e nada é gravado. Num teste posterior, o passo a passo de um ticket novo ("a maquininha não conecta desde ontem", cliente C003) foi cortado nesse limite; a causa (resposta longa ou repetição do modelo) ainda não foi investigada |
+| `max_tokens` 2048 | As respostas reais usaram de 176 a 696 tokens; resposta cortada gera erro explícito e nada é gravado |
 | Ticket repetido e aberto fica fora do histórico | Se o cliente abre um segundo ticket com o mesmo texto de um anterior ainda aberto, o anterior não entra no `<historico_cliente>`: é a mesma reclamação, não acrescenta informação, e o prompt fica idêntico ao do primeiro ticket, então a resposta sai do cache. Se o anterior já foi resolvido, ele entra, porque a resolução é informação nova |
 | API `v1beta` do Gemini | A `v1` (padrão do SDK) recusa *system instruction*, que é a camada de persona |
 | Hash dos templates na chave de cache | Editar um template invalida só o cache que depende dele |

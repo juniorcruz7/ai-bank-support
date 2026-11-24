@@ -38,7 +38,7 @@ Resultado da rubrica (notas de 1 a 5; justificativas completas nos arquivos 06 e
   "v2": {
     "clarity":       {"score": 4, "justification": "..."},
     "customer_fit":  {"score": 5, "justification": "..."},
-    "actionability": {"score": 4, "justification": "..."}
+    "actionability": {"score": 2, "justification": "..."}
   }
 }
 ```

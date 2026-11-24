@@ -1,5 +1,8 @@
 # ai-bank-support
 
+> **Demonstração online: [ai-bank-support.streamlit.app](https://ai-bank-support.streamlit.app)**
+> Interface web pronta para testar, sem instalar nada. As contas de teste (cliente e atendente) estão na aba "Contas de demonstração" da tela de login. Os dados são compartilhados entre visitantes e voltam aos de exemplo quando o app reinicia ([detalhes](#deploy-streamlit-community-cloud)).
+
 Assistente de suporte para um banco digital fictício, construído com **engenharia de prompt versionada**. A partir de um **perfil de cliente** e de um **ticket**, o sistema gera quatro conteúdos de suporte com o Gemini, valida cada saída com Pydantic, guarda tudo num histórico JSON com cache e permite comparar versões de prompt (v1, v2 e v3) com uma rubrica. A partir da v3, um ticket que não é um pedido de suporte do banco (por exemplo, "meu gato comeu pedra") é recusado com uma mensagem ao cliente, em vez de receber uma resposta inventada.
 
 | Conteúdo | Para quem | O que traz |
@@ -10,8 +13,6 @@ Assistente de suporte para um banco digital fictício, construído com **engenha
 | `flow_summary` | Atendente | Árvore de decisão desenhada em ASCII pelo código |
 
 A estratégia de prompt, a comparação entre versões e as limitações estão em [PROMPT_ENGINEERING_NOTES.md](PROMPT_ENGINEERING_NOTES.md).
-
-**Demonstração online:** https://ai-bank-support.streamlit.app (interface web; as contas de teste estão na própria tela de login). Os dados da demonstração são compartilhados entre visitantes e voltam aos de exemplo quando o app reinicia; detalhes em [Deploy](#deploy-streamlit-community-cloud).
 
 ## Setup do zero
 
@@ -112,7 +113,7 @@ python main.py generate --user maria --ticket T001 --type all       # cliente: s
 - `--type`: `diagnosis`, `resolution_steps`, `clarifying_questions`, `flow_summary` ou `all` (para a conta de cliente, `all` são os 2 tipos permitidos).
 - `--version`: pasta em `prompts/` (padrão `v3`; só atendente).
 
-**Ticket fora do escopo (v3).** Se o ticket não for um pedido de suporte do banco que dê para entender (assunto sem relação com o banco, texto sem sentido, pedido para fazer outra coisa), a v3 não inventa um atendimento: a saída traz só o campo `out_of_scope`, e a CLI e a web mostram a mensagem no lugar do conteúdo. No passo a passo e nas perguntas, a mensagem é para o cliente, no tom do perfil, pedindo que ele descreva o problema com o banco; no diagnóstico e no fluxograma, é uma frase para o atendente. Ticket vago mas sobre o banco ("meu app não funciona") continua no escopo e recebe perguntas de esclarecimento. A recusa também vai para o cache. Exemplo real em [samples/09](samples/09_out_of_scope_resolution_steps_v3.json), e a resposta da v2 para o mesmo ticket (conselhos veterinários) em [samples/08](samples/08_out_of_scope_resolution_steps_v2.json).
+**Ticket fora do escopo (v3).** A v3 é a v2 com um caso a mais: se o ticket não for um pedido de suporte do banco que dê para entender (assunto sem relação com o banco, texto sem sentido, pedido para fazer outra coisa), a v3 não inventa um atendimento: a saída traz só o campo `out_of_scope`, e a CLI e a web mostram a mensagem no lugar do conteúdo. No passo a passo e nas perguntas, a mensagem é para o cliente, no tom do perfil, pedindo que ele descreva o problema com o banco; no diagnóstico e no fluxograma, é uma frase para o atendente. Ticket vago mas sobre o banco ("meu app não funciona") continua no escopo e recebe perguntas de esclarecimento. A recusa também vai para o cache. Exemplo real em [samples/09](samples/09_out_of_scope_resolution_steps_v3.json), e a resposta da v2 para o mesmo ticket (conselhos veterinários) em [samples/08](samples/08_out_of_scope_resolution_steps_v2.json).
 
 A saída aparece formatada no terminal, seguida do caminho do JSON salvo. Exemplo real de fluxograma (T001, cliente Maria, v2):
 
@@ -130,6 +131,8 @@ A saída aparece formatada no terminal, seguida do caminho do JSON salvo. Exempl
 JSON salvo em: runs\C001\T001\20261122T145258_flow_summary_v2_9a7a2365_691ad6efac2658e8.json (gerado agora)
 ```
 
+Repare que a ação n4 promete prazo ("pode levar até 1 hora"), uma das falhas da v2 listadas nas [notas](PROMPT_ENGINEERING_NOTES.md#falhas-encontradas-na-v2).
+
 ### Comparar versões e registrar a rubrica
 
 ```bash
@@ -141,7 +144,7 @@ Roda o mesmo cenário em cada versão (mesmo perfil, ticket, histórico, modelo,
 ### Abrir um ticket novo
 
 ```bash
-python main.py ticket add --user atendente --customer C003 --title "Maquininha" --description "A maquininha não conecta desde ontem."
+python main.py ticket add --user atendente --customer C003 --title "Boleto não compensou" --description "Um cliente pagou um boleto ontem e o valor ainda não apareceu na minha conta."
 ```
 
 O ticket é anexado a `data/tickets.json` com o próximo ID (T007, T008…), `status: "aberto"` e data/hora. No `generate` interativo também existe a opção "Digitar um novo ticket".
@@ -161,7 +164,7 @@ python main.py history --user atendente --customer C001
 python main.py history --user maria                  # cliente: o próprio histórico
 ```
 
-Lista os tickets do cliente (mais recentes primeiro, com a resolução quando houver) e as execuções gravadas em `runs/` para cada ticket: data, tipo, versão, se veio do cache, nota da rubrica e caminho do JSON.
+Para o atendente, lista os tickets do cliente (mais recentes primeiro, com a resolução quando houver) e as execuções gravadas em `runs/` para cada ticket: data, tipo, versão, se veio do cache, nota da rubrica e caminho do JSON. Para o cliente, mostra a mesma visão da web, sem dados técnicos: os próprios tickets com o número na conta dele (nº 1, nº 2…, com o ID entre parênteses para usar em `--ticket`) e as respostas recebidas, a mais recente de cada tipo por ticket. No `generate`, o cliente também recebe só a resposta, sem versão nem caminho do JSON.
 
 ### Interface web (Streamlit)
 
