@@ -5,6 +5,7 @@ from itertools import zip_longest
 
 from pydantic import BaseModel
 
+from app.generators import OUTPUT_MODELS
 from app.models import (
     ROOT_NODE_ID,
     RUBRIC_CRITERIA,
@@ -197,4 +198,41 @@ def render_history(profile: Profile, tickets: list[Ticket], runs: list[tuple[str
                 ev = run.evaluation
                 lines.append(f"      Rubrica: {ev.total}/15 (comparação {ev.comparison_id[:8]})")
             lines.append(f"      {path}")
+    return "\n".join(lines)
+
+
+def _indent(text: str, prefix: str = "    ") -> str:
+    return "\n".join(prefix + line if line else line for line in text.splitlines())
+
+
+def render_customer_history(profile: Profile, tickets: list[Ticket], runs: list[Run], numbers: dict[str, int]) -> str:
+    """Histórico na visão do cliente (CLI): os próprios tickets e as respostas, sem dados técnicos.
+
+    `numbers` é a numeração dos tickets na conta do cliente (nº 1, nº 2…). O ID interno vai entre
+    parênteses porque é ele que a CLI usa em `--ticket`. Das respostas, mostra a mais recente de
+    cada tipo por ticket: repetir a mesma resposta vinda do cache não ajuda o cliente.
+    """
+
+    def name(ticket_id: str) -> str:
+        return f"nº {numbers[ticket_id]} ({ticket_id})" if ticket_id in numbers else ticket_id
+
+    lines = [f"=== Meu histórico · {profile.name} ===", "", f"Meus tickets ({len(tickets)}):"]
+    for t in sorted(tickets, key=lambda t: t.created_at, reverse=True):
+        lines.append(f"  {name(t.id)}  {t.created_at:%d/%m/%Y %H:%M}  [{t.status}]  {t.title}")
+        if t.resolution:
+            lines.append(f"        Resolução: {t.resolution}")
+    if not tickets:
+        lines.append("  (nenhum)")
+
+    latest: dict[tuple[str, str], Run] = {}
+    for run in runs:  # em ordem cronológica: a última de cada par fica
+        latest[(run.ticket.id, run.content_type)] = run
+    answers = sorted(latest.values(), key=lambda r: r.timestamp, reverse=True)
+    lines += ["", f"Respostas recebidas ({len(answers)}):"]
+    if not answers:
+        lines.append("  (nenhuma)")
+    for run in answers:
+        output = OUTPUT_MODELS[run.content_type].model_validate(run.output)
+        title = f"{run.timestamp:%d/%m/%Y %H:%M} · Ticket {name(run.ticket.id)} · {CONTENT_LABELS[run.content_type]}"
+        lines += ["", f"  --- {title} ---", _indent(render_output(run.content_type, output))]
     return "\n".join(lines)

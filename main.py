@@ -26,6 +26,7 @@ from app.models import RUBRIC_CRITERIA, Profile, Score, Ticket, User
 from app.prompt_builder import CONTENT_TYPES, DEFAULT_VERSION, PROMPTS_DIR, PromptError, list_versions
 from app.render import (
     CONTENT_LABELS,
+    render_customer_history,
     render_history,
     render_output,
     render_scores_table,
@@ -35,6 +36,7 @@ from app.runtime import make_client, setup_logging
 from app.service import (
     RunResult,
     customer_history,
+    customer_ticket_numbers,
     open_ticket,
     resolve_ticket,
     run_content,
@@ -261,7 +263,7 @@ def cmd_generate(args: argparse.Namespace) -> int:
             failures.append(current)
             print(f"\nErro em {CONTENT_LABELS[current]}: {exc}", file=sys.stderr)
             continue
-        _print_result(profile, ticket, version, result)
+        _print_result(user, profile, ticket, version, result)
 
     if failures:
         names = ", ".join(CONTENT_LABELS[f] for f in failures)
@@ -270,8 +272,12 @@ def cmd_generate(args: argparse.Namespace) -> int:
     return 0
 
 
-def _print_result(profile: Profile, ticket: Ticket, version: str, result: RunResult) -> None:
+def _print_result(user: User, profile: Profile, ticket: Ticket, version: str, result: RunResult) -> None:
     run = result.run
+    if not auth.is_agent(user):  # o cliente recebe só a resposta, sem detalhes técnicos
+        print(f"\n=== {CONTENT_LABELS[run.content_type]} · ticket {ticket.id} ===\n")
+        print(render_output(run.content_type, result.output))
+        return
     print(f"\n=== {CONTENT_LABELS[run.content_type]} · {ticket.id} · {profile.name} · {version} ===\n")
     print(render_output(run.content_type, result.output))
     status = "cache hit, sem chamada à API" if run.cache_hit else "gerado agora"
@@ -372,7 +378,11 @@ def cmd_history(args: argparse.Namespace) -> int:
     tickets = visible_tickets(user, load_tickets(profiles, TICKETS_PATH))
     profile = _pick_customer(user, profiles, args.customer)
     own, runs = customer_history(user, profile.id, tickets, RUNS_DIR)
-    print(render_history(profile, own, [(_display_path(path), run) for path, run in runs]))
+    if auth.is_agent(user):
+        print(render_history(profile, own, [(_display_path(path), run) for path, run in runs]))
+    else:  # visão do cliente, como na web: sem versão, cache, rubrica nem caminhos de arquivo
+        numbers = customer_ticket_numbers(own, profile.id)
+        print(render_customer_history(profile, own, [run for _, run in runs], numbers))
     return 0
 
 

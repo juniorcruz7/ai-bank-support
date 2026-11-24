@@ -175,9 +175,9 @@ def test_ticket_add(env, capsys):
         "--customer",
         "C003",
         "--title",
-        "Maquininha",
+        "Boleto não compensou",
         "--description",
-        "A maquininha não conecta.",
+        "Um cliente pagou um boleto ontem e não compensou.",
     ]
     assert main.main(argv) == 0
     assert "Ticket T007 criado para C003 · Carlos." in capsys.readouterr().out
@@ -377,9 +377,11 @@ def test_customer_generates_own_content_without_customer_flag(env, capsys, monke
     env.responses(VALID_BY_TYPE["resolution_steps"], VALID_BY_TYPE["clarifying_questions"])
     assert main.main(["generate", "--user", "maria", "--ticket", "T001", "--type", "all"]) == 0
     out = capsys.readouterr().out
-    assert "=== Passo a passo · T001 · Maria · v3 ===" in out
-    assert "=== Perguntas de esclarecimento" in out
+    assert "=== Passo a passo · ticket T001 ===" in out
+    assert "=== Perguntas de esclarecimento · ticket T001 ===" in out
     assert "Diagnóstico" not in out and "Fluxograma" not in out
+    # Como na web, o cliente não vê dados técnicos da execução.
+    assert "JSON salvo" not in out and "v3" not in out and "cache" not in out
 
 
 @pytest.mark.parametrize(
@@ -412,7 +414,25 @@ def test_customer_history_hides_internal_runs(env, capsys, monkeypatch):
 
     assert main.main(["history", "--user", "maria"]) == 0
     out = capsys.readouterr().out
-    assert "=== Histórico · C001 · Maria" in out and "Execuções (0):" in out
+    assert "=== Meu histórico · Maria ===" in out and "Respostas recebidas (0):" in out
+    assert "Limite noturno" not in out.split("Respostas recebidas")[1]  # o diagnóstico não aparece
+
+
+def test_customer_history_shows_answers_without_technical_details(env, capsys, monkeypatch):
+    _as(monkeypatch, "maria-demo")
+    env.responses(VALID_BY_TYPE["resolution_steps"])
+    main.main(["generate", "--user", "maria", "--ticket", "T001", "--type", "resolution_steps"])
+    env.responses()
+    main.main(["generate", "--user", "maria", "--ticket", "T001", "--type", "resolution_steps"])  # do cache
+    capsys.readouterr()
+
+    assert main.main(["history", "--user", "maria"]) == 0
+    out = capsys.readouterr().out
+    assert "  nº 2 (T001)  20/11/2026 21:05  [aberto]  Pix não chegou" in out
+    assert "  nº 1 (T005)" in out
+    assert "Respostas recebidas (1):" in out  # a resposta repetida do cache aparece uma vez
+    assert "Ticket nº 2 (T001) · Passo a passo ---" in out and "Passo 1: Abra o app" in out
+    assert not any(word in out for word in ("runs", ".json", "cache", "v3", "Rubrica", "Execuções"))
 
 
 def test_customer_interactive_menu_offers_only_allowed_types(env, capsys, monkeypatch):
@@ -448,4 +468,4 @@ def test_out_of_scope_ticket_is_refused_and_cached(env, capsys, monkeypatch):
     env.responses()
     assert main.main(["generate", "--user", "renata", "--ticket", "T007", "--type", "resolution_steps"]) == 0
     out = capsys.readouterr().out
-    assert OUT_OF_SCOPE_MESSAGE in out and "cache hit" in out
+    assert OUT_OF_SCOPE_MESSAGE in out and env.client.calls == []
