@@ -43,7 +43,7 @@ class BuiltPrompt:
 
 
 def list_versions(prompts_dir: Path = PROMPTS_DIR) -> list[str]:
-    """Versões disponíveis = subpastas de prompts/ (criar v3 = criar a pasta)."""
+    """Versões disponíveis = subpastas de prompts/ (uma versão nova é uma pasta nova)."""
     if not prompts_dir.is_dir():
         return []
     return sorted(p.name for p in prompts_dir.iterdir() if p.is_dir() and not p.name.startswith("."))

@@ -61,7 +61,7 @@ Fluxo básico na CLI: escolher perfil → escolher ticket → escolher tipo (ou 
 | RNF04 | Erros da API tratados: chave ausente, timeout, rate limit (429) com backoff, resposta vazia/bloqueada | Mensagem legível na CLI, sem stack trace cru |
 | RNF05 | Entradas validadas: perfil inexistente, nível/estilo/canal fora da lista, ticket vazio ou longo demais | Teste unitário por caso |
 | RNF06 | Reprodutibilidade: temperatura fixa e baixa na comparação; modelo e configs registrados em cada execução | Registro no JSON tem `model` e `config` |
-| RNF07 | Prompts fora do código (arquivos de template por versão), para editar sem mexer na lógica | Criar v3 = adicionar arquivos, sem mudar Python |
+| RNF07 | Prompts fora do código (arquivos de template por versão), para editar sem mexer na lógica | Criar uma versão nova = adicionar arquivos em `prompts/<versão>/`, sem mudar Python, quando a mudança é só de prompt (a v3 também precisou de um campo novo no schema) |
 | RNF08 | Provedor de LLM atrás de uma interface única (trocar Gemini/OpenAI/Anthropic sem mexer no resto) | Mock do cliente nos testes |
 | RNF09 | Dependências mínimas, listadas no `requirements.txt` com versões fixadas | Instalação limpa só com o README |
 | RNF10 | Escrita segura do histórico e do `tickets.json` (escreve em arquivo temporário e renomeia), para não corromper o JSON | Interromper no meio não quebra o arquivo |
